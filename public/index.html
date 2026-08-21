@@ -1,234 +1,126 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f7f7f7" />
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="apple-touch-icon" href="/icon-192.png" />
-  <title>PFC Camera</title>
-  <style>
-    :root{
-      --bg:#f5f5f7; --card:#fff; --text:#111; --muted:#707070; --line:#e5e5ea;
-      --accent:#111; --ok:#2d7d46; --warn:#a15a00;
-    }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}
-    .app{max-width:560px;margin:auto;padding:calc(14px + env(safe-area-inset-top)) 14px calc(100px + env(safe-area-inset-bottom))}
-    h1{font-size:28px;margin:6px 0 2px}
-    .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
-    .card{background:var(--card);border-radius:20px;padding:16px;margin:12px 0;box-shadow:0 1px 10px rgba(0,0,0,.04)}
-    .row{display:flex;gap:10px;align-items:center}.row>*{flex:1}
-    .label{font-size:12px;color:var(--muted);margin-bottom:5px}
-    .big{font-size:30px;font-weight:700}
-    .macro{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
-    .macro .box{background:#f7f7f8;border-radius:16px;padding:12px}
-    .macro b{font-size:20px}
-    .progress{height:8px;background:#ececf0;border-radius:999px;overflow:hidden;margin-top:8px}
-    .progress span{display:block;height:100%;background:#111;border-radius:999px;width:0}
-    button,.btn{appearance:none;border:0;border-radius:14px;padding:13px 14px;font-size:16px;font-weight:650;background:#111;color:#fff;text-align:center}
-    .secondary{background:#ececf0;color:#111}.danger{background:#fbe8e8;color:#9f1d1d}
-    input,select{width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:12px;font-size:16px}
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .photo{width:100%;max-height:260px;object-fit:contain;border-radius:16px;background:#eee;display:none;margin-top:10px}
-    .food{padding:12px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
-    .food:last-child{border-bottom:0}.food-title{font-weight:650}.food-meta{font-size:12px;color:var(--muted);margin-top:3px}
-    .pill{font-size:12px;background:#f0f0f2;border-radius:999px;padding:5px 8px;display:inline-block}
-    .note{font-size:12px;color:var(--muted);line-height:1.45}
-    .hidden{display:none}
-    .sticky{position:fixed;left:0;right:0;bottom:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:rgba(245,245,247,.92);backdrop-filter:blur(16px)}
-    .sticky-inner{max-width:560px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f7f7f7">
+<link rel="manifest" href="/manifest.json">
+<title>PFC Camera</title>
+<style>
+body{margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111}
+.app{max-width:560px;margin:auto;padding:16px 14px 100px}.card{background:#fff;border-radius:20px;padding:16px;margin:12px 0}
+h1{margin:0 0 4px}.sub,.note,.meta,.label{color:#707070}.label,.note,.meta{font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+input,select,button{width:100%;box-sizing:border-box;border-radius:12px;padding:12px;font-size:16px}
+input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background:#111;color:#fff;font-weight:700}
+.secondary{background:#ececf0;color:#111}.danger{background:#fbe8e8;color:#9f1d1d;width:auto}
+.row{display:flex;gap:10px;align-items:center}.photo{width:100%;max-height:280px;object-fit:contain;border-radius:14px;background:#eee;display:none;margin-top:10px}
+.macro{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.box{background:#f7f7f8;border-radius:14px;padding:10px}
+.big{font-size:30px;font-weight:700}.food{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #eee}
+.hint{display:none;margin-top:8px;padding:10px;background:#fff8e8;border-radius:12px;font-size:13px}
+.sticky{position:fixed;left:0;right:0;bottom:0;background:rgba(245,245,247,.94);padding:10px 14px}.sticky>div{max-width:560px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+</style>
 </head>
 <body>
 <div class="app">
-  <h1>PFC Camera</h1>
-  <div class="sub">撮る → 確認 → 登録</div>
+<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録</div>
 
-  <section class="card">
-    <div class="label">今日の摂取カロリー</div>
-    <div><span class="big" id="calNow">0</span> <span id="calGoalText">/ 2000 kcal</span></div>
-    <div class="progress"><span id="calBar"></span></div>
-    <div class="macro">
-      <div class="box"><div class="label">P たんぱく質</div><b id="pNow">0</b> g<div class="progress"><span id="pBar"></span></div><div class="label" id="pRemain"></div></div>
-      <div class="box"><div class="label">F 脂質</div><b id="fNow">0</b> g<div class="progress"><span id="fBar"></span></div><div class="label" id="fRemain"></div></div>
-      <div class="box"><div class="label">C 炭水化物</div><b id="cNow">0</b> g<div class="progress"><span id="cBar"></span></div><div class="label" id="cRemain"></div></div>
-    </div>
-  </section>
+<div class="card">
+<div class="label">今日の摂取カロリー</div><div><span class="big" id="calNow">0</span> / <span id="goalCalText">2000</span> kcal</div>
+<div class="macro" style="margin-top:12px">
+<div class="box">P <b id="pNow">0</b>g<div class="label" id="pRemain"></div></div>
+<div class="box">F <b id="fNow">0</b>g<div class="label" id="fRemain"></div></div>
+<div class="box">C <b id="cNow">0</b>g<div class="label" id="cRemain"></div></div>
+</div></div>
 
-  <section class="card" id="scanCard">
-    <h2 style="margin-top:0">食品を追加</h2>
-    <input id="cameraInput" type="file" accept="image/*" capture="environment" />
-    <img id="preview" class="photo" alt="栄養成分表示の写真" />
-    <div class="row" style="margin-top:10px">
-      <button id="analyzeBtn">AIで読み取る</button>
-      <button id="demoBtn" class="secondary">デモ値を入れる</button>
-    </div>
-    <p class="note">※ 実際のAI読み取りにはサーバー側のAPIキー設定が必要です。APIキーはブラウザには保存しません。</p>
-  </section>
-
-  <section class="card">
-    <h2 style="margin-top:0">読み取り結果</h2>
-    <div class="label">商品名</div>
-    <input id="name" placeholder="例：ポテトチップス" />
-    <div class="grid2" style="margin-top:10px">
-      <div><div class="label">基準量</div><input id="baseAmount" type="number" value="100" step="0.1"></div>
-      <div><div class="label">単位</div><select id="unit"><option>g</option><option>ml</option><option>個</option><option>袋</option><option>食</option></select></div>
-    </div>
-    <div class="grid2" style="margin-top:10px">
-      <div><div class="label">kcal</div><input id="kcal" type="number" step="0.1"></div>
-      <div><div class="label">食塩相当量 g</div><input id="salt" type="number" step="0.01"></div>
-    </div>
-    <div class="grid3" style="margin-top:10px">
-      <div><div class="label">P g</div><input id="protein" type="number" step="0.1"></div>
-      <div><div class="label">F g</div><input id="fat" type="number" step="0.1"></div>
-      <div><div class="label">C g</div><input id="carbs" type="number" step="0.1"></div>
-    </div>
-    <div class="grid2" style="margin-top:10px">
-      <div><div class="label">食べた量</div><input id="eatenAmount" type="number" value="100" step="0.1"></div>
-      <div><div class="label">食事</div><select id="meal"><option>朝食</option><option>昼食</option><option>夕食</option><option>間食</option></select></div>
-    </div>
-
-    <div style="margin-top:14px;padding:12px;background:#f7f7f8;border-radius:14px">
-      <div class="label">登録される量</div>
-      <div id="scaledPreview">P 0g / F 0g / C 0g / 0kcal</div>
-    </div>
-    <button id="saveFood" style="width:100%;margin-top:12px">今日の食事に登録</button>
-  </section>
-
-  <section class="card">
-    <div class="row">
-      <h2 style="margin:0">今日の食事</h2>
-      <span class="pill" id="foodCount">0件</span>
-    </div>
-    <div id="foods"></div>
-  </section>
-
-  <section class="card">
-    <h2 style="margin-top:0">目標設定</h2>
-    <div class="grid2">
-      <div><div class="label">kcal</div><input id="goalKcal" type="number" value="2000"></div>
-      <div><div class="label">P g</div><input id="goalP" type="number" value="130"></div>
-      <div><div class="label">F g</div><input id="goalF" type="number" value="60"></div>
-      <div><div class="label">C g</div><input id="goalC" type="number" value="250"></div>
-    </div>
-    <button id="saveGoals" class="secondary" style="width:100%;margin-top:12px">目標を保存</button>
-  </section>
+<div class="card" id="scan">
+<h2>食品を追加</h2>
+<input id="cameraInput" type="file" accept="image/*" capture="environment">
+<img id="preview" class="photo">
+<div class="row" style="margin-top:10px"><button id="analyzeBtn">AIで読み取る</button><button class="secondary" id="demoBtn">デモ</button></div>
+<p class="note">商品名が写真に写っていない場合は推測せず空欄にします。</p>
 </div>
 
-<div class="sticky">
-  <div class="sticky-inner">
-    <button onclick="document.getElementById('cameraInput').click()">📷 撮影</button>
-    <button class="secondary" onclick="document.getElementById('scanCard').scrollIntoView({behavior:'smooth'})">＋ 食品追加</button>
-  </div>
+<div class="card">
+<h2>読み取り結果</h2>
+<div class="label">商品名</div><input id="name" placeholder="画像に商品名がなければ手入力">
+<div id="nameHint" class="hint">商品名は画像から確認できませんでした。手入力してください。</div>
+<div style="margin-top:12px"><div class="label">過去に登録した食品</div><select id="historySelect"><option value="">選択してください</option></select></div>
+<div class="grid2" style="margin-top:10px">
+<div><div class="label">基準量</div><input id="baseAmount" type="number" value="100" step="0.1"></div>
+<div><div class="label">単位</div><select id="unit"><option>g</option><option>ml</option><option>個</option><option>袋</option><option>食</option></select></div>
 </div>
+<div class="grid2" style="margin-top:10px">
+<div><div class="label">kcal</div><input id="kcal" type="number" step="0.1"></div>
+<div><div class="label">食塩相当量 g</div><input id="salt" type="number" step="0.01"></div>
+</div>
+<div class="grid3" style="margin-top:10px">
+<div><div class="label">P g</div><input id="protein" type="number" step="0.1"></div>
+<div><div class="label">F g</div><input id="fat" type="number" step="0.1"></div>
+<div><div class="label">C g</div><input id="carbs" type="number" step="0.1"></div>
+</div>
+<div class="grid2" style="margin-top:10px">
+<div><div class="label">食べた量</div><input id="eatenAmount" type="number" value="100" step="0.1"></div>
+<div><div class="label">食事</div><select id="meal"><option>朝食</option><option>昼食</option><option>夕食</option><option>間食</option></select></div>
+</div>
+<div id="scaled" style="margin-top:12px;padding:12px;background:#f7f7f8;border-radius:12px">P 0g / F 0g / C 0g / 0kcal</div>
+<button id="saveFood" style="margin-top:12px">今日の食事に登録</button>
+</div>
+
+<div class="card"><h2>今日の食事</h2><div id="foods"></div></div>
+
+<div class="card">
+<h2>目標設定</h2>
+<div class="grid2">
+<div><div class="label">kcal</div><input id="goalKcal" type="number" value="2000"></div>
+<div><div class="label">P g</div><input id="goalP" type="number" value="130"></div>
+<div><div class="label">F g</div><input id="goalF" type="number" value="60"></div>
+<div><div class="label">C g</div><input id="goalC" type="number" value="250"></div>
+</div><button id="saveGoals" class="secondary" style="margin-top:12px">目標を保存</button>
+</div>
+</div>
+
+<div class="sticky"><div><button onclick="cameraInput.click()">📷 撮影</button><button class="secondary" onclick="scan.scrollIntoView({behavior:'smooth'})">＋ 食品追加</button></div></div>
 
 <script>
-const $ = id => document.getElementById(id);
-const todayKey = new Date().toISOString().slice(0,10);
-let foods = JSON.parse(localStorage.getItem('pfc_foods_'+todayKey) || '[]');
-let goals = JSON.parse(localStorage.getItem('pfc_goals') || '{"kcal":2000,"p":130,"f":60,"c":250}');
+const $=id=>document.getElementById(id), num=id=>parseFloat($(id).value)||0, r1=v=>Math.round(v*10)/10;
+const dateKey=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const key=dateKey();
+let foods=JSON.parse(localStorage.getItem('pfc_foods_'+key)||'[]');
+let history=JSON.parse(localStorage.getItem('pfc_history')||'[]');
+let goals=JSON.parse(localStorage.getItem('pfc_goals')||'{"kcal":2000,"p":130,"f":60,"c":250}');
 
-function n(id){ return parseFloat($(id).value) || 0; }
-function round1(v){ return Math.round(v*10)/10; }
-function ratio(){ const b=n('baseAmount'); return b ? n('eatenAmount')/b : 0; }
+function ratio(){return num('baseAmount')?num('eatenAmount')/num('baseAmount'):0}
+function updateScaled(){const x=ratio();$('scaled').textContent=`P ${r1(num('protein')*x)}g / F ${r1(num('fat')*x)}g / C ${r1(num('carbs')*x)}g / ${r1(num('kcal')*x)}kcal`}
+['baseAmount','eatenAmount','protein','fat','carbs','kcal'].forEach(i=>$(i).addEventListener('input',updateScaled));
+cameraInput.onchange=e=>{const f=e.target.files?.[0];if(f){preview.src=URL.createObjectURL(f);preview.style.display='block'}};
 
-function updateScaled(){
-  const r=ratio();
-  $('scaledPreview').textContent =
-    `P ${round1(n('protein')*r)}g / F ${round1(n('fat')*r)}g / C ${round1(n('carbs')*r)}g / ${round1(n('kcal')*r)}kcal`;
-}
-['baseAmount','eatenAmount','protein','fat','carbs','kcal'].forEach(id => $(id).addEventListener('input', updateScaled));
+demoBtn.onclick=()=>{name.value='フルグラ';baseAmount.value=50;unit.value='g';kcal.value=222;protein.value=3.6;fat.value=8;carbs.value=36.1;salt.value=.2;eatenAmount.value=50;updateScaled()};
 
-$('cameraInput').addEventListener('change', e=>{
-  const file=e.target.files?.[0];
-  if(!file) return;
-  $('preview').src=URL.createObjectURL(file);
-  $('preview').style.display='block';
-});
-
-$('demoBtn').onclick=()=>{
-  $('name').value='ポテトチップス（デモ）';
-  $('baseAmount').value=80; $('unit').value='g';
-  $('kcal').value=420; $('protein').value=8.2; $('fat').value=18.5; $('carbs').value=56.4; $('salt').value=1.2;
-  $('eatenAmount').value=40; updateScaled();
+analyzeBtn.onclick=async()=>{
+ const f=cameraInput.files?.[0]; if(!f)return alert('栄養成分表示を撮影してください');
+ const fd=new FormData();fd.append('image',f);analyzeBtn.disabled=true;analyzeBtn.textContent='読み取り中…';
+ try{
+   const res=await fetch('/api/analyze',{method:'POST',body:fd}); if(!res.ok)throw new Error(await res.text());
+   const d=await res.json();
+   name.value=d.food_name||'';nameHint.style.display=d.food_name?'none':'block';
+   baseAmount.value=d.serving_size||100;if([...unit.options].some(o=>o.value===d.serving_unit))unit.value=d.serving_unit;
+   kcal.value=d.calories??'';protein.value=d.protein??'';fat.value=d.fat??'';carbs.value=d.carbohydrates??'';salt.value=d.salt??'';eatenAmount.value=d.serving_size||100;updateScaled();
+ }catch(e){alert('AI読み取りに失敗しました。\n\n'+e.message)}finally{analyzeBtn.disabled=false;analyzeBtn.textContent='AIで読み取る'}
 };
 
-$('analyzeBtn').onclick=async()=>{
-  const file=$('cameraInput').files?.[0];
-  if(!file){ alert('栄養成分表示を撮影または選択してください'); return; }
-  const fd=new FormData(); fd.append('image', file);
-  $('analyzeBtn').disabled=true; $('analyzeBtn').textContent='読み取り中…';
-  try{
-    const res=await fetch('/api/analyze',{method:'POST',body:fd});
-    if(!res.ok) throw new Error(await res.text());
-    const d=await res.json();
-    $('name').value=d.food_name||'';
-    $('baseAmount').value=d.serving_size||100;
-    if([...$('unit').options].some(o=>o.value===d.serving_unit)) $('unit').value=d.serving_unit;
-    $('kcal').value=d.calories??'';
-    $('protein').value=d.protein??'';
-    $('fat').value=d.fat??'';
-    $('carbs').value=d.carbohydrates??'';
-    $('salt').value=d.salt??'';
-    $('eatenAmount').value=d.serving_size||100;
-    updateScaled();
-  }catch(err){
-    alert('AI読み取りに失敗しました。READMEのAPI設定を確認してください。\n\n'+err.message);
-  }finally{
-    $('analyzeBtn').disabled=false; $('analyzeBtn').textContent='AIで読み取る';
-  }
-};
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function renderHistory(){historySelect.innerHTML='<option value="">選択してください</option>'+history.map((x,i)=>`<option value="${i}">${esc(x.name)}</option>`).join('')}
+historySelect.onchange=()=>{const i=parseInt(historySelect.value);if(Number.isNaN(i))return;const x=history[i];name.value=x.name;baseAmount.value=x.base;unit.value=x.unit;kcal.value=x.kcal;protein.value=x.p;fat.value=x.f;carbs.value=x.c;salt.value=x.salt;eatenAmount.value=x.base;nameHint.style.display='none';updateScaled()};
 
-$('saveFood').onclick=()=>{
-  const r=ratio();
-  const item={
-    id:Date.now(), name:$('name').value||'名称未設定', meal:$('meal').value,
-    amount:n('eatenAmount'), unit:$('unit').value,
-    kcal:round1(n('kcal')*r), p:round1(n('protein')*r), f:round1(n('fat')*r), c:round1(n('carbs')*r), salt:round1(n('salt')*r)
-  };
-  foods.push(item);
-  localStorage.setItem('pfc_foods_'+todayKey,JSON.stringify(foods));
-  render();
-};
+function saveHistory(){const nm=name.value.trim();if(!nm)return;const x={name:nm,base:num('baseAmount'),unit:unit.value,kcal:num('kcal'),p:num('protein'),f:num('fat'),c:num('carbs'),salt:num('salt')};history=history.filter(h=>h.name.toLowerCase()!=nm.toLowerCase());history.unshift(x);history=history.slice(0,50);localStorage.setItem('pfc_history',JSON.stringify(history));renderHistory()}
+function resetEntry(){['name','kcal','protein','fat','carbs','salt'].forEach(i=>$(i).value='');baseAmount.value=100;eatenAmount.value=100;unit.value='g';cameraInput.value='';preview.style.display='none';preview.src='';historySelect.value='';nameHint.style.display='none';updateScaled()}
+saveFood.onclick=()=>{const x=ratio();foods.push({id:Date.now(),name:name.value.trim()||'名称未設定',meal:meal.value,amount:num('eatenAmount'),unit:unit.value,kcal:r1(num('kcal')*x),p:r1(num('protein')*x),f:r1(num('fat')*x),c:r1(num('carbs')*x)});localStorage.setItem('pfc_foods_'+key,JSON.stringify(foods));saveHistory();render();resetEntry()};
+function removeFood(id){foods=foods.filter(x=>x.id!==id);localStorage.setItem('pfc_foods_'+key,JSON.stringify(foods));render()}
 
-function removeFood(id){
-  foods=foods.filter(x=>x.id!==id);
-  localStorage.setItem('pfc_foods_'+todayKey,JSON.stringify(foods));
-  render();
-}
-
-function render(){
-  const t=foods.reduce((a,x)=>({kcal:a.kcal+x.kcal,p:a.p+x.p,f:a.f+x.f,c:a.c+x.c}),{kcal:0,p:0,f:0,c:0});
-  $('calNow').textContent=round1(t.kcal); $('pNow').textContent=round1(t.p); $('fNow').textContent=round1(t.f); $('cNow').textContent=round1(t.c);
-  $('calGoalText').textContent=`/ ${goals.kcal} kcal`;
-  $('pRemain').textContent=`残り ${round1(Math.max(0,goals.p-t.p))}g`;
-  $('fRemain').textContent=`残り ${round1(Math.max(0,goals.f-t.f))}g`;
-  $('cRemain').textContent=`残り ${round1(Math.max(0,goals.c-t.c))}g`;
-  [['calBar',t.kcal,goals.kcal],['pBar',t.p,goals.p],['fBar',t.f,goals.f],['cBar',t.c,goals.c]].forEach(([id,v,g])=>$(id).style.width=Math.min(100,(v/g)*100)+'%');
-  $('foodCount').textContent=foods.length+'件';
-  $('foods').innerHTML=foods.length ? foods.slice().reverse().map(x=>`
-    <div class="food">
-      <div>
-        <div class="food-title">${escapeHtml(x.name)}</div>
-        <div class="food-meta">${x.meal}・${x.amount}${x.unit}・${x.kcal}kcal</div>
-        <div class="food-meta">P ${x.p}g / F ${x.f}g / C ${x.c}g</div>
-      </div>
-      <button class="danger" style="flex:0;padding:8px 10px" onclick="removeFood(${x.id})">削除</button>
-    </div>`).join('') : '<p class="note">まだ登録がありません。</p>';
-}
-function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-
-$('saveGoals').onclick=()=>{
-  goals={kcal:n('goalKcal'),p:n('goalP'),f:n('goalF'),c:n('goalC')};
-  localStorage.setItem('pfc_goals',JSON.stringify(goals)); render();
-};
-
-$('goalKcal').value=goals.kcal; $('goalP').value=goals.p; $('goalF').value=goals.f; $('goalC').value=goals.c;
-updateScaled(); render();
-
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
+function render(){const t=foods.reduce((a,x)=>({k:a.k+x.kcal,p:a.p+x.p,f:a.f+x.f,c:a.c+x.c}),{k:0,p:0,f:0,c:0});calNow.textContent=r1(t.k);pNow.textContent=r1(t.p);fNow.textContent=r1(t.f);cNow.textContent=r1(t.c);goalCalText.textContent=goals.kcal;pRemain.textContent='残り '+r1(Math.max(0,goals.p-t.p))+'g';fRemain.textContent='残り '+r1(Math.max(0,goals.f-t.f))+'g';cRemain.textContent='残り '+r1(Math.max(0,goals.c-t.c))+'g';foods.innerHTML=foods.length?foods.slice().reverse().map(x=>`<div class="food"><div><b>${esc(x.name)}</b><div class="meta">${x.meal}・${x.amount}${x.unit}・${x.kcal}kcal</div><div class="meta">P ${x.p}g / F ${x.f}g / C ${x.c}g</div></div><button class="danger" onclick="removeFood(${x.id})">削除</button></div>`).join(''):'<div class="note">まだ登録がありません。</div>'}
+saveGoals.onclick=()=>{goals={kcal:num('goalKcal'),p:num('goalP'),f:num('goalF'),c:num('goalC')};localStorage.setItem('pfc_goals',JSON.stringify(goals));render()};
+goalKcal.value=goals.kcal;goalP.value=goals.p;goalF.value=goals.f;goalC.value=goals.c;renderHistory();updateScaled();render();
+if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
-</body>
-</html>
+</body></html>
