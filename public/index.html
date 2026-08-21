@@ -380,6 +380,35 @@ function resetIngredientForm(){
 function renderIngredientFoodList(){
   $('ingredientFoodList').innerHTML=ingredientDB.map(x=>`<option value="${esc(x.name)}"></option>`).join('');
 }
+
+function resetRecipeFormAfterRegister(){
+  $('savedRecipeSelect').value='';
+  $('recipeName').value='';
+  recipeIngredients=[];
+  aiRecipeIngredients=[];
+
+  // AI recipe image / preview
+  $('recipeImageInput').value='';
+  $('recipeImagePreview').src='';
+  $('recipeImagePreview').style.display='none';
+  $('recipeAIRows').innerHTML='';
+  $('recipeAIResult').style.display='none';
+
+  // Ingredient entry area
+  resetIngredientForm();
+  $('recipeMeal').value='朝食';
+  $('recipePortionWeight').value=100;
+  $('recipeFinishedWeight').value=0;
+  $('recipeFinishedWeight').dataset.autoWeight=0;
+  $('recipeFinishedWeight').dataset.userEdited='';
+
+  renderIngredients();
+  updateRecipeScaled();
+
+  // Back to fresh recipe state
+  $('savedRecipeSelect').value='';
+}
+
 function renderSavedRecipes(){
   $('savedRecipeSelect').innerHTML='<option value="">新しいレシピを作る</option>'+savedRecipes.map((r,i)=>`<option value="${i}">${esc(r.name)}</option>`).join('');
 }
@@ -626,11 +655,14 @@ $('registerRecipe').onclick=()=>{
   if(!recipeIngredients.length)return alert('材料を1つ以上追加してください');
   if(!finished)return alert('出来上がり総重量を入力してください');
   if(!portion)return alert('今回食べた量を入力してください');
+
+  const meal=$('recipeMeal').value;
   const x=portion/finished;
+
   foodItems.push({
     id:Date.now(),
     name,
-    meal:$('recipeMeal').value,
+    meal,
     amount:r1(portion),
     unit:'g',
     kcal:r1(t.kcal*x),
@@ -646,9 +678,14 @@ $('registerRecipe').onclick=()=>{
     baseSalt:r1(t.salt),
     recipe:true
   });
+
   saveCurrentDate();
   render();
-  alert('自炊した料理を登録しました');
+
+  // 登録成功後にだけレシピ入力を完全リセット
+  resetRecipeFormAfterRegister();
+
+  alert(`${name}を${meal}に登録しました`);
 };
 
 $('cameraInput').onchange=e=>{
