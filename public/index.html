@@ -139,8 +139,16 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
   <div id="ingredientList" style="margin-top:10px"></div>
   <div id="ingredientTotal" class="ingredient-total">合計：0kcal / P 0g / F 0g / C 0g</div>
 
+  <div id="ingredientWeightTotal" class="convert-box" style="margin-top:10px">
+    材料重量合計：0g（自動）
+  </div>
+
   <div class="grid2" style="margin-top:12px">
-    <div><div class="label">出来上がり総重量 g</div><input id="recipeFinishedWeight" type="number" step="0.1" value="500"></div>
+    <div>
+      <div class="label">出来上がり総重量 g</div>
+      <input id="recipeFinishedWeight" type="number" step="0.1" value="0">
+      <div class="db-note">材料重量合計を初期値にします。調理後に実測した場合はここを変更してください。</div>
+    </div>
     <div><div class="label">今回食べた量 g</div><input id="recipePortionWeight" type="number" step="0.1" value="100"></div>
   </div>
 
@@ -319,7 +327,20 @@ function renderIngredients(){
       <button class="danger small" type="button" onclick="removeIngredient(${i})">削除</button>
     </div>`).join(''):'<div class="note">材料はまだありません。</div>';
   const t=recipeTotals();
+  const ingredientWeight=r1(recipeIngredients.reduce((sum,x)=>sum+(Number(x.amount)||0),0));
   $('ingredientTotal').textContent=`合計：${r1(t.kcal)}kcal / P ${r1(t.p)}g / F ${r1(t.f)}g / C ${r1(t.c)}g`;
+  $('ingredientWeightTotal').textContent=`材料重量合計：${ingredientWeight}g（自動）`;
+
+  // 材料が変わったときは、出来上がり総重量の初期値を自動更新。
+  // ユーザーが実測値へ変更したあとは、その値を保持する。
+  const finishedEl=$('recipeFinishedWeight');
+  const lastAuto=Number(finishedEl.dataset.autoWeight||0);
+  const current=Number(finishedEl.value||0);
+  if(!finishedEl.dataset.userEdited || Math.abs(current-lastAuto)<0.0001){
+    finishedEl.value=ingredientWeight;
+    finishedEl.dataset.autoWeight=ingredientWeight;
+    finishedEl.dataset.userEdited='';
+  }
   updateRecipeScaled();
 }
 function removeIngredient(i){
@@ -430,7 +451,11 @@ $('addIngredient').onclick=()=>{
   renderIngredients();
 };
 
-['recipeFinishedWeight','recipePortionWeight'].forEach(id=>$(id).addEventListener('input',updateRecipeScaled));
+$('recipeFinishedWeight').addEventListener('input',()=>{
+  $('recipeFinishedWeight').dataset.userEdited='1';
+  updateRecipeScaled();
+});
+$('recipePortionWeight').addEventListener('input',updateRecipeScaled);
 
 $('saveRecipe').onclick=()=>{
   const name=$('recipeName').value.trim();
@@ -451,7 +476,9 @@ $('savedRecipeSelect').onchange=()=>{
   if(Number.isNaN(i)){
     $('recipeName').value='';
     recipeIngredients=[];
-    $('recipeFinishedWeight').value=500;
+    $('recipeFinishedWeight').value=0;
+    $('recipeFinishedWeight').dataset.autoWeight=0;
+    $('recipeFinishedWeight').dataset.userEdited='';
     $('recipePortionWeight').value=100;
     renderIngredients();
     return;
@@ -459,7 +486,9 @@ $('savedRecipeSelect').onchange=()=>{
   const r=savedRecipes[i];
   $('recipeName').value=r.name;
   recipeIngredients=(r.ingredients||[]).map(x=>({...x}));
-  $('recipeFinishedWeight').value=r.finishedWeight||500;
+  $('recipeFinishedWeight').value=r.finishedWeight||0;
+  $('recipeFinishedWeight').dataset.autoWeight=r.finishedWeight||0;
+  $('recipeFinishedWeight').dataset.userEdited='1';
   $('recipePortionWeight').value=Math.min(100,r.finishedWeight||100);
   renderIngredients();
 };
@@ -704,7 +733,7 @@ $('saveGoals').onclick=()=>{
   render();
 };
 $('goalKcal').value=goals.kcal;$('goalP').value=goals.p;$('goalF').value=goals.f;$('goalC').value=goals.c;
-renderHistory();renderIngredientFoodList();renderSavedRecipes();renderIngredients();updateIngredientConversion();updateScaled();loadDate(todayKey());
+$('recipeFinishedWeight').dataset.autoWeight=0;$('recipeFinishedWeight').dataset.userEdited='';renderHistory();renderIngredientFoodList();renderSavedRecipes();renderIngredients();updateIngredientConversion();updateScaled();loadDate(todayKey());
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
 </body></html>
