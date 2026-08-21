@@ -22,6 +22,13 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 .meal-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:4px 0 7px;border-bottom:2px solid #111}
 .meal-title{font-size:18px;font-weight:800}.meal-total{font-size:12px;color:#707070;text-align:right}
 .meal-empty{padding:10px 0;color:#9a9a9a;font-size:13px}
+.mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.mode-tabs button{background:#ececf0;color:#111}
+.mode-tabs button.active{background:#111;color:#fff}
+.recipe-panel{display:none}
+.ingredient{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #eee}
+.ingredient-total{margin-top:10px;padding:12px;background:#f7f7f8;border-radius:12px;font-weight:700}
+.recipe-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .datebar{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.datebar button{width:auto}.food-actions{display:flex;gap:6px;align-items:center}.sticky{position:fixed;left:0;right:0;bottom:0;background:rgba(245,245,247,.94);padding:10px 14px}.sticky>div{max-width:560px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px}
 </style>
 </head>
@@ -49,10 +56,72 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 
 <div class="card" id="scan">
 <h2>食品を追加</h2>
-<input id="cameraInput" type="file" accept="image/*" capture="environment">
-<img id="preview" class="photo">
-<div class="row" style="margin-top:10px"><button id="analyzeBtn">AIで読み取る</button><button class="secondary" id="demoBtn">デモ</button></div>
-<p class="note">商品名が写真に写っていない場合は推測せず空欄にします。</p>
+<div class="mode-tabs">
+  <button id="commercialTab" class="active" type="button">市販品</button>
+  <button id="recipeTab" type="button">自炊・レシピ</button>
+</div>
+
+<div id="commercialPanel">
+  <input id="cameraInput" type="file" accept="image/*" capture="environment">
+  <img id="preview" class="photo">
+  <div class="row" style="margin-top:10px"><button id="analyzeBtn">AIで読み取る</button><button class="secondary" id="demoBtn">デモ</button></div>
+  <p class="note">商品名が写真に写っていない場合は推測せず空欄にします。</p>
+</div>
+
+<div id="recipePanel" class="recipe-panel">
+  <div class="label">保存済みレシピ</div>
+  <select id="savedRecipeSelect"><option value="">新しいレシピを作る</option></select>
+
+  <div style="margin-top:10px">
+    <div class="label">料理名</div>
+    <input id="recipeName" placeholder="例：鶏むね肉と野菜炒め">
+  </div>
+
+  <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee">
+    <b>材料を追加</b>
+    <div class="label" style="margin-top:8px">過去に登録した食品から選ぶ（任意）</div>
+    <select id="recipeHistorySelect"><option value="">選択してください</option></select>
+
+    <div class="grid2" style="margin-top:10px">
+      <div><div class="label">材料名</div><input id="ingName" placeholder="例：鶏むね肉"></div>
+      <div><div class="label">使用量 g</div><input id="ingAmount" type="number" step="0.1" value="100"></div>
+    </div>
+
+    <div class="grid2" style="margin-top:10px">
+      <div><div class="label">基準量 g</div><input id="ingBaseAmount" type="number" step="0.1" value="100"></div>
+      <div><div class="label">kcal（基準量あたり）</div><input id="ingKcal" type="number" step="0.1"></div>
+    </div>
+
+    <div class="grid3" style="margin-top:10px">
+      <div><div class="label">P g</div><input id="ingP" type="number" step="0.1"></div>
+      <div><div class="label">F g</div><input id="ingF" type="number" step="0.1"></div>
+      <div><div class="label">C g</div><input id="ingC" type="number" step="0.1"></div>
+    </div>
+
+    <div class="grid2" style="margin-top:10px">
+      <div><div class="label">食塩相当量 g</div><input id="ingSalt" type="number" step="0.01"></div>
+      <div style="display:flex;align-items:end"><button id="addIngredient" type="button">材料を追加</button></div>
+    </div>
+  </div>
+
+  <div id="ingredientList" style="margin-top:10px"></div>
+  <div id="ingredientTotal" class="ingredient-total">合計：0kcal / P 0g / F 0g / C 0g</div>
+
+  <div class="grid2" style="margin-top:12px">
+    <div><div class="label">出来上がり総重量 g</div><input id="recipeFinishedWeight" type="number" step="0.1" value="500"></div>
+    <div><div class="label">今回食べた量 g</div><input id="recipePortionWeight" type="number" step="0.1" value="100"></div>
+  </div>
+
+  <div class="grid2" style="margin-top:10px">
+    <div><div class="label">食事</div><select id="recipeMeal"><option>朝食</option><option>昼食</option><option>夕食</option><option>間食</option></select></div>
+    <div><div class="label">今回の登録量</div><div id="recipeScaled" style="padding:12px;background:#f7f7f8;border-radius:12px">0kcal / P 0g / F 0g / C 0g</div></div>
+  </div>
+
+  <div class="recipe-actions">
+    <button id="saveRecipe" class="secondary" type="button">レシピを保存</button>
+    <button id="registerRecipe" type="button">この料理を登録</button>
+  </div>
+</div>
 </div>
 
 <div class="card">
@@ -109,6 +178,54 @@ let foodItems=[];
 let editingId=null;
 let history=JSON.parse(localStorage.getItem('pfc_history')||'[]');
 let goals=JSON.parse(localStorage.getItem('pfc_goals')||'{"kcal":2000,"p":130,"f":60,"c":250}');
+let recipeIngredients=[];
+let savedRecipes=JSON.parse(localStorage.getItem('pfc_recipes')||'[]');
+
+function recipeTotals(){
+  return recipeIngredients.reduce((a,x)=>({
+    kcal:a.kcal+(Number(x.kcal)||0),
+    p:a.p+(Number(x.p)||0),
+    f:a.f+(Number(x.f)||0),
+    c:a.c+(Number(x.c)||0),
+    salt:a.salt+(Number(x.salt)||0)
+  }),{kcal:0,p:0,f:0,c:0,salt:0});
+}
+function updateRecipeScaled(){
+  const t=recipeTotals();
+  const finished=Math.max(0,num('recipeFinishedWeight'));
+  const portion=Math.max(0,num('recipePortionWeight'));
+  const ratio=finished?portion/finished:0;
+  $('recipeScaled').textContent=`${r1(t.kcal*ratio)}kcal / P ${r1(t.p*ratio)}g / F ${r1(t.f*ratio)}g / C ${r1(t.c*ratio)}g`;
+}
+function renderIngredients(){
+  $('ingredientList').innerHTML=recipeIngredients.length?recipeIngredients.map((x,i)=>`
+    <div class="ingredient">
+      <div>
+        <b>${esc(x.name)}</b>
+        <div class="meta">${x.amount}g・${x.kcal}kcal</div>
+        <div class="meta">P ${x.p}g / F ${x.f}g / C ${x.c}g</div>
+      </div>
+      <button class="danger small" type="button" onclick="removeIngredient(${i})">削除</button>
+    </div>`).join(''):'<div class="note">材料はまだありません。</div>';
+  const t=recipeTotals();
+  $('ingredientTotal').textContent=`合計：${r1(t.kcal)}kcal / P ${r1(t.p)}g / F ${r1(t.f)}g / C ${r1(t.c)}g`;
+  updateRecipeScaled();
+}
+function removeIngredient(i){
+  recipeIngredients.splice(i,1);
+  renderIngredients();
+}
+function resetIngredientForm(){
+  $('recipeHistorySelect').value='';
+  $('ingName').value='';
+  $('ingAmount').value=100;
+  $('ingBaseAmount').value=100;
+  ['ingKcal','ingP','ingF','ingC','ingSalt'].forEach(id=>$(id).value='');
+}
+function renderSavedRecipes(){
+  $('savedRecipeSelect').innerHTML='<option value="">新しいレシピを作る</option>'+savedRecipes.map((r,i)=>`<option value="${i}">${esc(r.name)}</option>`).join('');
+}
+
 
 function storageKey(date=selectedDate){return 'pfc_foods_'+date}
 function loadDate(date){
@@ -138,6 +255,121 @@ $('recordDate').onchange=()=>{
 $('todayBtn').onclick=()=>{
   cancelEditMode(false);
   loadDate(todayKey());
+};
+
+$('commercialTab').onclick=()=>{
+  $('commercialTab').classList.add('active');
+  $('recipeTab').classList.remove('active');
+  $('commercialPanel').style.display='block';
+  $('recipePanel').style.display='none';
+};
+$('recipeTab').onclick=()=>{
+  $('recipeTab').classList.add('active');
+  $('commercialTab').classList.remove('active');
+  $('commercialPanel').style.display='none';
+  $('recipePanel').style.display='block';
+};
+
+$('recipeHistorySelect').onchange=()=>{
+  const i=parseInt($('recipeHistorySelect').value);
+  if(Number.isNaN(i))return;
+  const x=history[i];
+  $('ingName').value=x.name;
+  $('ingBaseAmount').value=x.base||100;
+  $('ingAmount').value=x.base||100;
+  $('ingKcal').value=x.kcal||0;
+  $('ingP').value=x.p||0;
+  $('ingF').value=x.f||0;
+  $('ingC').value=x.c||0;
+  $('ingSalt').value=x.salt||0;
+};
+
+$('addIngredient').onclick=()=>{
+  const name=$('ingName').value.trim();
+  if(!name)return alert('材料名を入力してください');
+  const amount=Math.max(0,num('ingAmount'));
+  const base=Math.max(0,num('ingBaseAmount'));
+  if(!base)return alert('基準量を入力してください');
+  const x=amount/base;
+  recipeIngredients.push({
+    name,
+    amount:r1(amount),
+    kcal:r1(num('ingKcal')*x),
+    p:r1(num('ingP')*x),
+    f:r1(num('ingF')*x),
+    c:r1(num('ingC')*x),
+    salt:r1(num('ingSalt')*x)
+  });
+  resetIngredientForm();
+  renderIngredients();
+};
+
+['recipeFinishedWeight','recipePortionWeight'].forEach(id=>$(id).addEventListener('input',updateRecipeScaled));
+
+$('saveRecipe').onclick=()=>{
+  const name=$('recipeName').value.trim();
+  const finished=Math.max(0,num('recipeFinishedWeight'));
+  if(!name)return alert('料理名を入力してください');
+  if(!recipeIngredients.length)return alert('材料を1つ以上追加してください');
+  if(!finished)return alert('出来上がり総重量を入力してください');
+  const data={name,finishedWeight:finished,ingredients:recipeIngredients};
+  const idx=savedRecipes.findIndex(r=>r.name.toLowerCase()===name.toLowerCase());
+  if(idx>=0)savedRecipes[idx]=data; else savedRecipes.unshift(data);
+  localStorage.setItem('pfc_recipes',JSON.stringify(savedRecipes));
+  renderSavedRecipes();
+  alert('レシピを保存しました');
+};
+
+$('savedRecipeSelect').onchange=()=>{
+  const i=parseInt($('savedRecipeSelect').value);
+  if(Number.isNaN(i)){
+    $('recipeName').value='';
+    recipeIngredients=[];
+    $('recipeFinishedWeight').value=500;
+    $('recipePortionWeight').value=100;
+    renderIngredients();
+    return;
+  }
+  const r=savedRecipes[i];
+  $('recipeName').value=r.name;
+  recipeIngredients=(r.ingredients||[]).map(x=>({...x}));
+  $('recipeFinishedWeight').value=r.finishedWeight||500;
+  $('recipePortionWeight').value=Math.min(100,r.finishedWeight||100);
+  renderIngredients();
+};
+
+$('registerRecipe').onclick=()=>{
+  const name=$('recipeName').value.trim();
+  const t=recipeTotals();
+  const finished=Math.max(0,num('recipeFinishedWeight'));
+  const portion=Math.max(0,num('recipePortionWeight'));
+  if(!name)return alert('料理名を入力してください');
+  if(!recipeIngredients.length)return alert('材料を1つ以上追加してください');
+  if(!finished)return alert('出来上がり総重量を入力してください');
+  if(!portion)return alert('今回食べた量を入力してください');
+  const x=portion/finished;
+  foodItems.push({
+    id:Date.now(),
+    name,
+    meal:$('recipeMeal').value,
+    amount:r1(portion),
+    unit:'g',
+    kcal:r1(t.kcal*x),
+    p:r1(t.p*x),
+    f:r1(t.f*x),
+    c:r1(t.c*x),
+    salt:r1(t.salt*x),
+    baseAmount:r1(finished),
+    baseKcal:r1(t.kcal),
+    baseP:r1(t.p),
+    baseF:r1(t.f),
+    baseC:r1(t.c),
+    baseSalt:r1(t.salt),
+    recipe:true
+  });
+  saveCurrentDate();
+  render();
+  alert('自炊した料理を登録しました');
 };
 
 $('cameraInput').onchange=e=>{
@@ -195,7 +427,9 @@ $('analyzeBtn').onclick=async()=>{
 
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function renderHistory(){
-  $('historySelect').innerHTML='<option value="">選択してください</option>'+history.map((x,i)=>`<option value="${i}">${esc(x.name)}</option>`).join('');
+  const opts=history.map((x,i)=>`<option value="${i}">${esc(x.name)}</option>`).join('');
+  $('historySelect').innerHTML='<option value="">選択してください</option>'+opts;
+  $('recipeHistorySelect').innerHTML='<option value="">選択してください</option>'+opts;
 }
 $('historySelect').onchange=()=>{
   const i=parseInt($('historySelect').value);
@@ -344,7 +578,7 @@ $('saveGoals').onclick=()=>{
   render();
 };
 $('goalKcal').value=goals.kcal;$('goalP').value=goals.p;$('goalF').value=goals.f;$('goalC').value=goals.c;
-renderHistory();updateScaled();loadDate(todayKey());
+renderHistory();renderSavedRecipes();renderIngredients();updateScaled();loadDate(todayKey());
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
 </body></html>
