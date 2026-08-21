@@ -1,6 +1,6 @@
 {
-  "name": "pfc-camera-prototype",
-  "version": "0.1.0",
+  "name": "pfc-camera",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "start": "node server.js"
