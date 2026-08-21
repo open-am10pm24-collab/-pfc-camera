@@ -86,27 +86,54 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 const $=id=>document.getElementById(id), num=id=>parseFloat($(id).value)||0, r1=v=>Math.round(v*10)/10;
 const dateKey=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const key=dateKey();
-let foods=JSON.parse(localStorage.getItem('pfc_foods_'+key)||'[]');
+let foodItems=JSON.parse(localStorage.getItem('pfc_foods_'+key)||'[]');
 let history=JSON.parse(localStorage.getItem('pfc_history')||'[]');
 let goals=JSON.parse(localStorage.getItem('pfc_goals')||'{"kcal":2000,"p":130,"f":60,"c":250}');
 
 function ratio(){return num('baseAmount')?num('eatenAmount')/num('baseAmount'):0}
 function updateScaled(){const x=ratio();$('scaled').textContent=`P ${r1(num('protein')*x)}g / F ${r1(num('fat')*x)}g / C ${r1(num('carbs')*x)}g / ${r1(num('kcal')*x)}kcal`}
 ['baseAmount','eatenAmount','protein','fat','carbs','kcal'].forEach(i=>$(i).addEventListener('input',updateScaled));
-cameraInput.onchange=e=>{const f=e.target.files?.[0];if(f){preview.src=URL.createObjectURL(f);preview.style.display='block'}};
+
+cameraInput.onchange=e=>{
+  const f=e.target.files?.[0];
+  if(f){preview.src=URL.createObjectURL(f);preview.style.display='block'}
+};
 
 demoBtn.onclick=()=>{name.value='フルグラ';baseAmount.value=50;unit.value='g';kcal.value=222;protein.value=3.6;fat.value=8;carbs.value=36.1;salt.value=.2;eatenAmount.value=50;updateScaled()};
 
+function fileToDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=()=>reject(reader.error||new Error('画像の読み込みに失敗しました'));
+    reader.readAsDataURL(file);
+  });
+}
+
 analyzeBtn.onclick=async()=>{
- const f=cameraInput.files?.[0]; if(!f)return alert('栄養成分表示を撮影してください');
- const fd=new FormData();fd.append('image',f);analyzeBtn.disabled=true;analyzeBtn.textContent='読み取り中…';
+ const f=cameraInput.files?.[0];
+ if(!f)return alert('栄養成分表示を撮影してください');
+ analyzeBtn.disabled=true;analyzeBtn.textContent='読み取り中…';
  try{
-   const res=await fetch('/api/analyze',{method:'POST',body:fd}); if(!res.ok)throw new Error(await res.text());
-   const d=await res.json();
+   const image=await fileToDataURL(f);
+   const res=await fetch('/api/analyze',{
+     method:'POST',
+     headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({image})
+   });
+   const raw=await res.text();
+   if(!res.ok)throw new Error(raw||`HTTP ${res.status}`);
+   const d=JSON.parse(raw);
    name.value=d.food_name||'';nameHint.style.display=d.food_name?'none':'block';
-   baseAmount.value=d.serving_size||100;if([...unit.options].some(o=>o.value===d.serving_unit))unit.value=d.serving_unit;
-   kcal.value=d.calories??'';protein.value=d.protein??'';fat.value=d.fat??'';carbs.value=d.carbohydrates??'';salt.value=d.salt??'';eatenAmount.value=d.serving_size||100;updateScaled();
- }catch(e){alert('AI読み取りに失敗しました。\n\n'+e.message)}finally{analyzeBtn.disabled=false;analyzeBtn.textContent='AIで読み取る'}
+   baseAmount.value=d.serving_size||100;
+   if([...unit.options].some(o=>o.value===d.serving_unit))unit.value=d.serving_unit;
+   kcal.value=d.calories??'';protein.value=d.protein??'';fat.value=d.fat??'';carbs.value=d.carbohydrates??'';salt.value=d.salt??'';
+   eatenAmount.value=d.serving_size||100;updateScaled();
+ }catch(e){
+   alert('AI読み取りに失敗しました。\\n\\n'+e.message)
+ }finally{
+   analyzeBtn.disabled=false;analyzeBtn.textContent='AIで読み取る'
+ }
 };
 
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -115,10 +142,15 @@ historySelect.onchange=()=>{const i=parseInt(historySelect.value);if(Number.isNa
 
 function saveHistory(){const nm=name.value.trim();if(!nm)return;const x={name:nm,base:num('baseAmount'),unit:unit.value,kcal:num('kcal'),p:num('protein'),f:num('fat'),c:num('carbs'),salt:num('salt')};history=history.filter(h=>h.name.toLowerCase()!=nm.toLowerCase());history.unshift(x);history=history.slice(0,50);localStorage.setItem('pfc_history',JSON.stringify(history));renderHistory()}
 function resetEntry(){['name','kcal','protein','fat','carbs','salt'].forEach(i=>$(i).value='');baseAmount.value=100;eatenAmount.value=100;unit.value='g';cameraInput.value='';preview.style.display='none';preview.src='';historySelect.value='';nameHint.style.display='none';updateScaled()}
-saveFood.onclick=()=>{const x=ratio();foods.push({id:Date.now(),name:name.value.trim()||'名称未設定',meal:meal.value,amount:num('eatenAmount'),unit:unit.value,kcal:r1(num('kcal')*x),p:r1(num('protein')*x),f:r1(num('fat')*x),c:r1(num('carbs')*x)});localStorage.setItem('pfc_foods_'+key,JSON.stringify(foods));saveHistory();render();resetEntry()};
-function removeFood(id){foods=foods.filter(x=>x.id!==id);localStorage.setItem('pfc_foods_'+key,JSON.stringify(foods));render()}
+saveFood.onclick=()=>{const x=ratio();foodItems.push({id:Date.now(),name:name.value.trim()||'名称未設定',meal:meal.value,amount:num('eatenAmount'),unit:unit.value,kcal:r1(num('kcal')*x),p:r1(num('protein')*x),f:r1(num('fat')*x),c:r1(num('carbs')*x)});localStorage.setItem('pfc_foods_'+key,JSON.stringify(foodItems));saveHistory();render();resetEntry()};
+function removeFood(id){foodItems=foodItems.filter(x=>x.id!==id);localStorage.setItem('pfc_foods_'+key,JSON.stringify(foodItems));render()}
 
-function render(){const t=foods.reduce((a,x)=>({k:a.k+x.kcal,p:a.p+x.p,f:a.f+x.f,c:a.c+x.c}),{k:0,p:0,f:0,c:0});calNow.textContent=r1(t.k);pNow.textContent=r1(t.p);fNow.textContent=r1(t.f);cNow.textContent=r1(t.c);goalCalText.textContent=goals.kcal;pRemain.textContent='残り '+r1(Math.max(0,goals.p-t.p))+'g';fRemain.textContent='残り '+r1(Math.max(0,goals.f-t.f))+'g';cRemain.textContent='残り '+r1(Math.max(0,goals.c-t.c))+'g';foods.innerHTML=foods.length?foods.slice().reverse().map(x=>`<div class="food"><div><b>${esc(x.name)}</b><div class="meta">${x.meal}・${x.amount}${x.unit}・${x.kcal}kcal</div><div class="meta">P ${x.p}g / F ${x.f}g / C ${x.c}g</div></div><button class="danger" onclick="removeFood(${x.id})">削除</button></div>`).join(''):'<div class="note">まだ登録がありません。</div>'}
+function render(){
+ const t=foodItems.reduce((a,x)=>({k:a.k+x.kcal,p:a.p+x.p,f:a.f+x.f,c:a.c+x.c}),{k:0,p:0,f:0,c:0});
+ calNow.textContent=r1(t.k);pNow.textContent=r1(t.p);fNow.textContent=r1(t.f);cNow.textContent=r1(t.c);goalCalText.textContent=goals.kcal;
+ pRemain.textContent='残り '+r1(Math.max(0,goals.p-t.p))+'g';fRemain.textContent='残り '+r1(Math.max(0,goals.f-t.f))+'g';cRemain.textContent='残り '+r1(Math.max(0,goals.c-t.c))+'g';
+ $('foods').innerHTML=foodItems.length?foodItems.slice().reverse().map(x=>`<div class="food"><div><b>${esc(x.name)}</b><div class="meta">${x.meal}・${x.amount}${x.unit}・${x.kcal}kcal</div><div class="meta">P ${x.p}g / F ${x.f}g / C ${x.c}g</div></div><button class="danger" onclick="removeFood(${x.id})">削除</button></div>`).join(''):'<div class="note">まだ登録がありません。</div>'
+}
 saveGoals.onclick=()=>{goals={kcal:num('goalKcal'),p:num('goalP'),f:num('goalF'),c:num('goalC')};localStorage.setItem('pfc_goals',JSON.stringify(goals));render()};
 goalKcal.value=goals.kcal;goalP.value=goals.p;goalF.value=goals.f;goalC.value=goals.c;renderHistory();updateScaled();render();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
