@@ -13,20 +13,30 @@ h1{margin:0 0 4px}.sub,.note,.meta,.label{color:#707070}.label,.note,.meta{font-
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 input,select,button{width:100%;box-sizing:border-box;border-radius:12px;padding:12px;font-size:16px}
 input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background:#111;color:#fff;font-weight:700}
-.secondary{background:#ececf0;color:#111}.danger{background:#fbe8e8;color:#9f1d1d;width:auto}
+.secondary{background:#ececf0;color:#111}.danger{background:#fbe8e8;color:#9f1d1d;width:auto}.edit{background:#ececf0;color:#111;width:auto}.small{padding:9px 12px;font-size:14px}
 .row{display:flex;gap:10px;align-items:center}.photo{width:100%;max-height:280px;object-fit:contain;border-radius:14px;background:#eee;display:none;margin-top:10px}
 .macro{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.box{background:#f7f7f8;border-radius:14px;padding:10px}
 .big{font-size:30px;font-weight:700}.food{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #eee}
 .hint{display:none;margin-top:8px;padding:10px;background:#fff8e8;border-radius:12px;font-size:13px}
-.sticky{position:fixed;left:0;right:0;bottom:0;background:rgba(245,245,247,.94);padding:10px 14px}.sticky>div{max-width:560px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.datebar{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.datebar button{width:auto}.food-actions{display:flex;gap:6px;align-items:center}.sticky{position:fixed;left:0;right:0;bottom:0;background:rgba(245,245,247,.94);padding:10px 14px}.sticky>div{max-width:560px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px}
 </style>
 </head>
 <body>
 <div class="app">
 <h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録</div>
+<div class="card">
+  <div class="datebar">
+    <div>
+      <div class="label">表示する日付</div>
+      <input id="recordDate" type="date">
+    </div>
+    <button id="todayBtn" class="secondary small">今日</button>
+  </div>
+  <div class="note" id="dateNote" style="margin-top:8px"></div>
+</div>
 
 <div class="card">
-<div class="label">今日の摂取カロリー</div><div><span class="big" id="calNow">0</span> / <span id="goalCalText">2000</span> kcal</div>
+<div class="label" id="summaryLabel">今日の摂取カロリー</div><div><span class="big" id="calNow">0</span> / <span id="goalCalText">2000</span> kcal</div>
 <div class="macro" style="margin-top:12px">
 <div class="box">P <b id="pNow">0</b>g<div class="label" id="pRemain"></div></div>
 <div class="box">F <b id="fNow">0</b>g<div class="label" id="fRemain"></div></div>
@@ -64,10 +74,10 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 <div><div class="label">食事</div><select id="meal"><option>朝食</option><option>昼食</option><option>夕食</option><option>間食</option></select></div>
 </div>
 <div id="scaled" style="margin-top:12px;padding:12px;background:#f7f7f8;border-radius:12px">P 0g / F 0g / C 0g / 0kcal</div>
-<button id="saveFood" style="margin-top:12px">今日の食事に登録</button>
+<button id="saveFood" style="margin-top:12px">今日の食事に登録</button><button id="cancelEdit" class="secondary" style="margin-top:8px;display:none">編集をキャンセル</button>
 </div>
 
-<div class="card"><h2>今日の食事</h2><div id="foods"></div></div>
+<div class="card"><h2 id="foodsTitle">今日の食事</h2><div id="foods"></div></div>
 
 <div class="card">
 <h2>目標設定</h2>
@@ -83,23 +93,59 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 <div class="sticky"><div><button onclick="$('cameraInput').click()">📷 撮影</button><button class="secondary" onclick="$('scan').scrollIntoView({behavior:'smooth'})">＋ 食品追加</button></div></div>
 
 <script>
-const $=id=>document.getElementById(id), num=id=>parseFloat($(id).value)||0, r1=v=>Math.round(v*10)/10;
-const dateKey=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
-const key=dateKey();
-let foodItems=JSON.parse(localStorage.getItem('pfc_foods_'+key)||'[]');
+const $=id=>document.getElementById(id);
+const num=id=>parseFloat($(id).value)||0;
+const r1=v=>Math.round((Number(v)||0)*10)/10;
+const localDateKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const todayKey=()=>localDateKey(new Date());
+const prettyDate=k=>{const [y,m,d]=k.split('-').map(Number);return `${y}/${m}/${d}`};
+
+let selectedDate=todayKey();
+let foodItems=[];
+let editingId=null;
 let history=JSON.parse(localStorage.getItem('pfc_history')||'[]');
 let goals=JSON.parse(localStorage.getItem('pfc_goals')||'{"kcal":2000,"p":130,"f":60,"c":250}');
 
+function storageKey(date=selectedDate){return 'pfc_foods_'+date}
+function loadDate(date){
+  selectedDate=date;
+  foodItems=JSON.parse(localStorage.getItem(storageKey(date))||'[]');
+  $('recordDate').value=date;
+  const isToday=date===todayKey();
+  $('summaryLabel').textContent=isToday?'今日の摂取カロリー':`${prettyDate(date)} の摂取カロリー`;
+  $('foodsTitle').textContent=isToday?'今日の食事':`${prettyDate(date)} の食事`;
+  $('dateNote').textContent=isToday?'今日の記録を表示しています。':'過去の記録を表示中です。編集・削除もできます。';
+  $('saveFood').textContent=editingId!==null?'変更を保存':(isToday?'今日の食事に登録':`${prettyDate(date)} に登録`);
+  render();
+}
+function saveCurrentDate(){localStorage.setItem(storageKey(),JSON.stringify(foodItems))}
+
 function ratio(){return num('baseAmount')?num('eatenAmount')/num('baseAmount'):0}
-function updateScaled(){const x=ratio();$('scaled').textContent=`P ${r1(num('protein')*x)}g / F ${r1(num('fat')*x)}g / C ${r1(num('carbs')*x)}g / ${r1(num('kcal')*x)}kcal`}
+function updateScaled(){
+  const x=ratio();
+  $('scaled').textContent=`P ${r1(num('protein')*x)}g / F ${r1(num('fat')*x)}g / C ${r1(num('carbs')*x)}g / ${r1(num('kcal')*x)}kcal`;
+}
 ['baseAmount','eatenAmount','protein','fat','carbs','kcal'].forEach(i=>$(i).addEventListener('input',updateScaled));
+
+$('recordDate').onchange=()=>{
+  cancelEditMode(false);
+  loadDate($('recordDate').value||todayKey());
+};
+$('todayBtn').onclick=()=>{
+  cancelEditMode(false);
+  loadDate(todayKey());
+};
 
 $('cameraInput').onchange=e=>{
   const f=e.target.files?.[0];
   if(f){$('preview').src=URL.createObjectURL(f);$('preview').style.display='block'}
 };
 
-$('demoBtn').onclick=()=>{$('name').value='フルグラ';$('baseAmount').value=50;$('unit').value='g';$('kcal').value=222;$('protein').value=3.6;$('fat').value=8;$('carbs').value=36.1;$('salt').value=.2;$('eatenAmount').value=50;updateScaled()};
+$('demoBtn').onclick=()=>{
+  $('name').value='フルグラ';$('baseAmount').value=50;$('unit').value='g';$('kcal').value=222;
+  $('protein').value=3.6;$('fat').value=8;$('carbs').value=36.1;$('salt').value=.2;$('eatenAmount').value=50;
+  updateScaled();
+};
 
 function fileToDataURL(file){
   return new Promise((resolve,reject)=>{
@@ -111,41 +157,81 @@ function fileToDataURL(file){
 }
 
 $('analyzeBtn').onclick=async()=>{
- const f=$('cameraInput').files?.[0];
- if(!f)return alert('栄養成分表示を撮影してください');
- $('analyzeBtn').disabled=true;$('analyzeBtn').textContent='読み取り中…';
- try{
-   const image=await fileToDataURL(f);
-   const res=await fetch('/api/analyze',{
-     method:'POST',
-     headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({image})
-   });
-   const raw=await res.text();
-   if(!res.ok)throw new Error(raw||`HTTP ${res.status}`);
-   const d=JSON.parse(raw);
-   $('name').value=d.food_name||'';$('nameHint').style.display=d.food_name?'none':'block';
-   $('baseAmount').value=d.serving_size||100;
-   if([...unit.options].some(o=>o.value===d.serving_unit))$('unit').value=d.serving_unit;
-   $('kcal').value=d.calories??'';$('protein').value=d.protein??'';$('fat').value=d.fat??'';$('carbs').value=d.carbohydrates??'';$('salt').value=d.salt??'';
-   $('eatenAmount').value=d.serving_size||100;updateScaled();
- }catch(e){
-   alert('AI読み取りに失敗しました。\\n\\n'+e.message)
- }finally{
-   $('analyzeBtn').disabled=false;$('analyzeBtn').textContent='AIで読み取る'
- }
+  const f=$('cameraInput').files?.[0];
+  if(!f)return alert('栄養成分表示を撮影してください');
+  $('analyzeBtn').disabled=true;$('analyzeBtn').textContent='読み取り中…';
+  try{
+    const image=await fileToDataURL(f);
+    const res=await fetch('/api/analyze',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({image})
+    });
+    const raw=await res.text();
+    if(!res.ok)throw new Error(raw||`HTTP ${res.status}`);
+    const d=JSON.parse(raw);
+    $('name').value=d.food_name||'';
+    $('nameHint').style.display=d.food_name?'none':'block';
+    $('baseAmount').value=d.serving_size||100;
+    if([...$('unit').options].some(o=>o.value===d.serving_unit))$('unit').value=d.serving_unit;
+    $('kcal').value=d.calories??'';
+    $('protein').value=d.protein??'';
+    $('fat').value=d.fat??'';
+    $('carbs').value=d.carbohydrates??'';
+    $('salt').value=d.salt??'';
+    $('eatenAmount').value=d.serving_size||100;
+    updateScaled();
+  }catch(e){
+    alert('AI読み取りに失敗しました。\n\n'+e.message);
+  }finally{
+    $('analyzeBtn').disabled=false;
+    $('analyzeBtn').textContent='AIで読み取る';
+  }
 };
 
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function renderHistory(){$('historySelect').innerHTML='<option value="">選択してください</option>'+history.map((x,i)=>`<option value="${i}">${esc(x.name)}</option>`).join('')}
-historySelect.onchange=()=>{const i=parseInt($('historySelect').value);if(Number.isNaN(i))return;const x=history[i];$('name').value=x.name;$('baseAmount').value=x.base;$('unit').value=x.unit;$('kcal').value=x.kcal;$('protein').value=x.p;$('fat').value=x.f;$('carbs').value=x.c;$('salt').value=x.salt;$('eatenAmount').value=x.base;$('nameHint').style.display='none';updateScaled()};
+function renderHistory(){
+  $('historySelect').innerHTML='<option value="">選択してください</option>'+history.map((x,i)=>`<option value="${i}">${esc(x.name)}</option>`).join('');
+}
+$('historySelect').onchange=()=>{
+  const i=parseInt($('historySelect').value);
+  if(Number.isNaN(i))return;
+  const x=history[i];
+  $('name').value=x.name;$('baseAmount').value=x.base;$('unit').value=x.unit;$('kcal').value=x.kcal;
+  $('protein').value=x.p;$('fat').value=x.f;$('carbs').value=x.c;$('salt').value=x.salt??0;
+  $('eatenAmount').value=x.base;$('nameHint').style.display='none';updateScaled();
+};
 
-function saveHistory(){const nm=$('name').value.trim();if(!nm)return;const x={name:nm,base:num('baseAmount'),unit:$('unit').value,kcal:num('kcal'),p:num('protein'),f:num('fat'),c:num('carbs'),salt:num('salt')};history=history.filter(h=>h.name.toLowerCase()!=nm.toLowerCase());history.unshift(x);history=history.slice(0,50);localStorage.setItem('pfc_history',JSON.stringify(history));renderHistory()}
-function resetEntry(){['name','kcal','protein','fat','carbs','salt'].forEach(i=>$(i).value='');$('baseAmount').value=100;$('eatenAmount').value=100;$('unit').value='g';$('cameraInput').value='';$('preview').style.display='none';$('preview').src='';$('historySelect').value='';$('nameHint').style.display='none';updateScaled()}
-$('saveFood').onclick=()=>{
+function saveHistory(){
+  const nm=$('name').value.trim();
+  if(!nm)return;
+  const x={name:nm,base:num('baseAmount'),unit:$('unit').value,kcal:num('kcal'),p:num('protein'),f:num('fat'),c:num('carbs'),salt:num('salt')};
+  history=history.filter(h=>h.name.toLowerCase()!=nm.toLowerCase());
+  history.unshift(x);
+  history=history.slice(0,50);
+  localStorage.setItem('pfc_history',JSON.stringify(history));
+  renderHistory();
+}
+
+function resetEntry(){
+  ['name','kcal','protein','fat','carbs','salt'].forEach(i=>$(i).value='');
+  $('baseAmount').value=100;$('eatenAmount').value=100;$('unit').value='g';
+  $('cameraInput').value='';$('preview').style.display='none';$('preview').src='';
+  $('historySelect').value='';$('nameHint').style.display='none';updateScaled();
+}
+
+function cancelEditMode(reset=true){
+  editingId=null;
+  $('cancelEdit').style.display='none';
+  $('saveFood').textContent=selectedDate===todayKey()?'今日の食事に登録':`${prettyDate(selectedDate)} に登録`;
+  if(reset)resetEntry();
+}
+$('cancelEdit').onclick=()=>cancelEditMode(true);
+
+function makeItem(existingId=null){
   const x=ratio();
-  const item={
-    id:Date.now(),
+  return {
+    id:existingId??Date.now(),
     name:$('name').value.trim()||'名称未設定',
     meal:$('meal').value,
     amount:num('eatenAmount'),
@@ -153,25 +239,89 @@ $('saveFood').onclick=()=>{
     kcal:r1(num('kcal')*x),
     p:r1(num('protein')*x),
     f:r1(num('fat')*x),
-    c:r1(num('carbs')*x)
+    c:r1(num('carbs')*x),
+    salt:r1(num('salt')*x),
+    baseAmount:num('baseAmount'),
+    baseKcal:num('kcal'),
+    baseP:num('protein'),
+    baseF:num('fat'),
+    baseC:num('carbs'),
+    baseSalt:num('salt')
   };
-  foodItems.push(item);
-  localStorage.setItem('pfc_foods_'+key,JSON.stringify(foodItems));
+}
+
+$('saveFood').onclick=()=>{
+  const isEdit=editingId!==null;
+  if(isEdit){
+    const idx=foodItems.findIndex(x=>x.id===editingId);
+    if(idx<0)return alert('編集対象が見つかりませんでした');
+    foodItems[idx]=makeItem(editingId);
+  }else{
+    foodItems.push(makeItem());
+  }
+  saveCurrentDate();
   saveHistory();
   render();
-  resetEntry();
-  alert('今日の食事に登録しました');
+  cancelEditMode(true);
+  alert(isEdit?'変更を保存しました':'食事に登録しました');
 };
-function removeFood(id){foodItems=foodItems.filter(x=>x.id!==id);localStorage.setItem('pfc_foods_'+key,JSON.stringify(foodItems));render()}
+
+function editFood(id){
+  const x=foodItems.find(v=>v.id===id);
+  if(!x)return;
+  editingId=id;
+  const base=x.baseAmount||x.amount||100;
+  $('name').value=x.name==='名称未設定'?'':x.name;
+  $('baseAmount').value=base;
+  $('unit').value=x.unit||'g';
+  $('kcal').value=x.baseKcal??x.kcal??'';
+  $('protein').value=x.baseP??x.p??'';
+  $('fat').value=x.baseF??x.f??'';
+  $('carbs').value=x.baseC??x.c??'';
+  $('salt').value=x.baseSalt??x.salt??0;
+  $('eatenAmount').value=x.amount??base;
+  $('meal').value=x.meal||'朝食';
+  $('nameHint').style.display='none';
+  $('cancelEdit').style.display='block';
+  $('saveFood').textContent='変更を保存';
+  updateScaled();
+  $('scan').scrollIntoView({behavior:'smooth'});
+}
+function removeFood(id){
+  if(!confirm('この記録を削除しますか？'))return;
+  foodItems=foodItems.filter(x=>x.id!==id);
+  saveCurrentDate();
+  if(editingId===id)cancelEditMode(true);
+  render();
+}
 
 function render(){
- const t=foodItems.reduce((a,x)=>({k:a.k+x.kcal,p:a.p+x.p,f:a.f+x.f,c:a.c+x.c}),{k:0,p:0,f:0,c:0});
- $('calNow').textContent=r1(t.k);$('pNow').textContent=r1(t.p);$('fNow').textContent=r1(t.f);$('cNow').textContent=r1(t.c);$('goalCalText').textContent=goals.kcal;
- $('pRemain').textContent='残り '+r1(Math.max(0,goals.p-t.p))+'g';$('fRemain').textContent='残り '+r1(Math.max(0,goals.f-t.f))+'g';$('cRemain').textContent='残り '+r1(Math.max(0,goals.c-t.c))+'g';
- $('foods').innerHTML=foodItems.length?foodItems.slice().reverse().map(x=>`<div class="food"><div><b>${esc(x.name)}</b><div class="meta">${x.meal}・${x.amount}${x.unit}・${x.kcal}kcal</div><div class="meta">P ${x.p}g / F ${x.f}g / C ${x.c}g</div></div><button class="danger" onclick="removeFood(${x.id})">削除</button></div>`).join(''):'<div class="note">まだ登録がありません。</div>'
+  const t=foodItems.reduce((a,x)=>({k:a.k+(Number(x.kcal)||0),p:a.p+(Number(x.p)||0),f:a.f+(Number(x.f)||0),c:a.c+(Number(x.c)||0)}),{k:0,p:0,f:0,c:0});
+  $('calNow').textContent=r1(t.k);$('pNow').textContent=r1(t.p);$('fNow').textContent=r1(t.f);$('cNow').textContent=r1(t.c);$('goalCalText').textContent=goals.kcal;
+  $('pRemain').textContent='残り '+r1(Math.max(0,goals.p-t.p))+'g';
+  $('fRemain').textContent='残り '+r1(Math.max(0,goals.f-t.f))+'g';
+  $('cRemain').textContent='残り '+r1(Math.max(0,goals.c-t.c))+'g';
+  $('foods').innerHTML=foodItems.length?foodItems.slice().reverse().map(x=>`
+    <div class="food">
+      <div>
+        <b>${esc(x.name)}</b>
+        <div class="meta">${esc(x.meal)}・${x.amount}${esc(x.unit)}・${x.kcal}kcal</div>
+        <div class="meta">P ${x.p}g / F ${x.f}g / C ${x.c}g</div>
+      </div>
+      <div class="food-actions">
+        <button class="edit small" onclick="editFood(${x.id})">編集</button>
+        <button class="danger small" onclick="removeFood(${x.id})">削除</button>
+      </div>
+    </div>`).join(''):'<div class="note">まだ登録がありません。</div>';
 }
-$('saveGoals').onclick=()=>{goals={kcal:num('goalKcal'),p:num('goalP'),f:num('goalF'),c:num('goalC')};localStorage.setItem('pfc_goals',JSON.stringify(goals));render()};
-$('goalKcal').value=goals.kcal;$('goalP').value=goals.p;$('goalF').value=goals.f;$('goalC').value=goals.c;renderHistory();updateScaled();render();
+
+$('saveGoals').onclick=()=>{
+  goals={kcal:num('goalKcal'),p:num('goalP'),f:num('goalF'),c:num('goalC')};
+  localStorage.setItem('pfc_goals',JSON.stringify(goals));
+  render();
+};
+$('goalKcal').value=goals.kcal;$('goalP').value=goals.p;$('goalF').value=goals.f;$('goalC').value=goals.c;
+renderHistory();updateScaled();loadDate(todayKey());
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
 </body></html>
