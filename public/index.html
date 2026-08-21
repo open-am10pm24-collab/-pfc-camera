@@ -29,6 +29,10 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 .ingredient{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #eee}
 .ingredient-total{margin-top:10px;padding:12px;background:#f7f7f8;border-radius:12px;font-weight:700}
 .recipe-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.convert-box{margin-top:8px;padding:10px 12px;background:#f7f7f8;border-radius:12px;font-size:13px}
+.db-note{font-size:12px;color:#777;margin-top:6px}
+.unit-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+@media(max-width:520px){.unit-row{grid-template-columns:1fr 1fr}}
 .datebar{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.datebar button{width:auto}.food-actions{display:flex;gap:6px;align-items:center}.sticky{position:fixed;left:0;right:0;bottom:0;background:rgba(245,245,247,.94);padding:10px 14px}.sticky>div{max-width:560px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px}
 </style>
 </head>
@@ -82,10 +86,38 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
     <div class="label" style="margin-top:8px">過去に登録した食品から選ぶ（任意）</div>
     <select id="recipeHistorySelect"><option value="">選択してください</option></select>
 
-    <div class="grid2" style="margin-top:10px">
-      <div><div class="label">材料名</div><input id="ingName" placeholder="例：鶏むね肉"></div>
-      <div><div class="label">使用量 g</div><input id="ingAmount" type="number" step="0.1" value="100"></div>
+    <div style="margin-top:10px">
+      <div class="label">材料名</div>
+      <input id="ingName" list="ingredientFoodList" placeholder="例：玉ねぎ、オイスターソース">
+      <datalist id="ingredientFoodList"></datalist>
+      <div class="db-note">候補から選ぶと、100gあたりの栄養成分と単位換算の目安を自動入力します。</div>
     </div>
+
+    <div class="unit-row" style="margin-top:10px">
+      <div>
+        <div class="label">数量</div>
+        <input id="ingQty" type="number" step="0.1" value="100">
+      </div>
+      <div>
+        <div class="label">単位</div>
+        <select id="ingUnit">
+          <option value="g">g</option>
+          <option value="ml">ml</option>
+          <option value="tbsp">大さじ</option>
+          <option value="tsp">小さじ</option>
+          <option value="piece">個</option>
+          <option value="sheet">枚</option>
+          <option value="stick">本</option>
+          <option value="clove">片</option>
+        </select>
+      </div>
+      <div>
+        <div class="label">g換算</div>
+        <input id="ingAmount" type="number" step="0.1" value="100">
+      </div>
+    </div>
+
+    <div id="conversionHint" class="convert-box">100g として計算します。</div>
 
     <div class="grid2" style="margin-top:10px">
       <div><div class="label">基準量 g</div><input id="ingBaseAmount" type="number" step="0.1" value="100"></div>
@@ -181,6 +213,85 @@ let goals=JSON.parse(localStorage.getItem('pfc_goals')||'{"kcal":2000,"p":130,"f
 let recipeIngredients=[];
 let savedRecipes=JSON.parse(localStorage.getItem('pfc_recipes')||'[]');
 
+// よく使う食材の簡易データベース（100gあたり・概算）。
+// ユーザーが入力欄で自由に修正できる前提です。
+const ingredientDB = [
+  {name:'玉ねぎ', kcal:33, p:1.0, f:0.1, c:8.4, salt:0, piece_g:200, ml_g:1},
+  {name:'キャベツ', kcal:23, p:1.3, f:0.2, c:5.2, salt:0, piece_g:1000, sheet_g:50, ml_g:1},
+  {name:'にんじん', kcal:35, p:0.7, f:0.2, c:9.3, salt:0, piece_g:150, ml_g:1},
+  {name:'ピーマン', kcal:20, p:0.9, f:0.2, c:5.1, salt:0, piece_g:35, ml_g:1},
+  {name:'もやし', kcal:14, p:1.7, f:0.1, c:2.6, salt:0, ml_g:1},
+  {name:'じゃがいも', kcal:59, p:1.8, f:0.1, c:17.3, salt:0, piece_g:150, ml_g:1},
+  {name:'鶏むね肉（皮なし）', kcal:105, p:23.3, f:1.9, c:0, salt:0.1, ml_g:1},
+  {name:'鶏もも肉（皮なし）', kcal:113, p:19.0, f:5.0, c:0, salt:0.1, ml_g:1},
+  {name:'豚こま切れ肉', kcal:220, p:18.0, f:16.0, c:0.2, salt:0.1, ml_g:1},
+  {name:'牛こま切れ肉', kcal:250, p:17.0, f:20.0, c:0.3, salt:0.1, ml_g:1},
+  {name:'卵', kcal:142, p:12.2, f:10.2, c:0.4, salt:0.4, piece_g:50, ml_g:1},
+  {name:'木綿豆腐', kcal:73, p:7.0, f:4.9, c:1.5, salt:0, ml_g:1},
+  {name:'ごはん（炊飯後）', kcal:156, p:2.5, f:0.3, c:37.1, salt:0, ml_g:1},
+  {name:'食用油', kcal:921, p:0, f:100, c:0, salt:0, tbsp_g:12, tsp_g:4, ml_g:0.8},
+  {name:'オリーブオイル', kcal:921, p:0, f:100, c:0, salt:0, tbsp_g:12, tsp_g:4, ml_g:0.8},
+  {name:'しょうゆ', kcal:71, p:7.7, f:0, c:7.9, salt:14.5, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'みりん', kcal:241, p:0.3, f:0, c:43.2, salt:0.1, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'料理酒', kcal:90, p:0.1, f:0, c:3.5, salt:0, tbsp_g:15, tsp_g:5, ml_g:1},
+  {name:'砂糖', kcal:391, p:0, f:0, c:99.3, salt:0, tbsp_g:9, tsp_g:3, ml_g:0.6},
+  {name:'塩', kcal:0, p:0, f:0, c:0, salt:100, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'味噌', kcal:182, p:12.5, f:6.0, c:21.9, salt:12.4, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'マヨネーズ', kcal:668, p:1.5, f:76.0, c:3.6, salt:1.8, tbsp_g:12, tsp_g:4, ml_g:0.8},
+  {name:'ケチャップ', kcal:104, p:1.6, f:0.2, c:27.4, salt:3.1, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'オイスターソース', kcal:107, p:7.7, f:0.3, c:18.1, salt:11.4, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'片栗粉', kcal:338, p:0.1, f:0.1, c:81.6, salt:0, tbsp_g:9, tsp_g:3, ml_g:0.6},
+  {name:'小麦粉', kcal:349, p:8.3, f:1.5, c:75.8, salt:0, tbsp_g:9, tsp_g:3, ml_g:0.6},
+  {name:'パン粉', kcal:369, p:14.6, f:6.8, c:63.4, salt:1.2, tbsp_g:3, tsp_g:1, ml_g:0.2},
+  {name:'にんにく', kcal:129, p:6.4, f:0.9, c:27.5, salt:0, clove_g:5, piece_g:5, ml_g:1},
+];
+
+function findIngredientDB(name){
+  const n=(name||'').trim().toLowerCase();
+  return ingredientDB.find(x=>x.name.toLowerCase()===n) ||
+         ingredientDB.find(x=>x.name.toLowerCase().includes(n) || n.includes(x.name.toLowerCase()));
+}
+
+function conversionFactor(item, unit){
+  if(unit==='g') return 1;
+  if(unit==='ml') return item?.ml_g ?? 1;
+  if(unit==='tbsp') return item?.tbsp_g ?? 15;
+  if(unit==='tsp') return item?.tsp_g ?? 5;
+  if(unit==='piece') return item?.piece_g ?? 100;
+  if(unit==='sheet') return item?.sheet_g ?? 10;
+  if(unit==='stick') return item?.stick_g ?? 100;
+  if(unit==='clove') return item?.clove_g ?? 5;
+  return 1;
+}
+
+function unitLabel(unit){
+  return ({g:'g',ml:'ml',tbsp:'大さじ',tsp:'小さじ',piece:'個',sheet:'枚',stick:'本',clove:'片'})[unit]||unit;
+}
+
+function updateIngredientConversion(){
+  const item=findIngredientDB($('ingName').value);
+  const qty=Math.max(0,num('ingQty'));
+  const unit=$('ingUnit').value;
+  const factor=conversionFactor(item,unit);
+  const grams=r1(qty*factor);
+  $('ingAmount').value=grams;
+  const source=item ? `${item.name}の目安換算` : '一般的な目安換算';
+  $('conversionHint').textContent=`${qty}${unitLabel(unit)} ≒ ${grams}g（${source}）`;
+}
+
+function applyIngredientDB(){
+  const item=findIngredientDB($('ingName').value);
+  if(!item){ updateIngredientConversion(); return; }
+  $('ingBaseAmount').value=100;
+  $('ingKcal').value=item.kcal;
+  $('ingP').value=item.p;
+  $('ingF').value=item.f;
+  $('ingC').value=item.c;
+  $('ingSalt').value=item.salt;
+  updateIngredientConversion();
+}
+
+
 function recipeTotals(){
   return recipeIngredients.reduce((a,x)=>({
     kcal:a.kcal+(Number(x.kcal)||0),
@@ -218,9 +329,15 @@ function removeIngredient(i){
 function resetIngredientForm(){
   $('recipeHistorySelect').value='';
   $('ingName').value='';
+  $('ingQty').value=100;
+  $('ingUnit').value='g';
   $('ingAmount').value=100;
   $('ingBaseAmount').value=100;
   ['ingKcal','ingP','ingF','ingC','ingSalt'].forEach(id=>$(id).value='');
+  $('conversionHint').textContent='100g として計算します。';
+}
+function renderIngredientFoodList(){
+  $('ingredientFoodList').innerHTML=ingredientDB.map(x=>`<option value="${esc(x.name)}"></option>`).join('');
 }
 function renderSavedRecipes(){
   $('savedRecipeSelect').innerHTML='<option value="">新しいレシピを作る</option>'+savedRecipes.map((r,i)=>`<option value="${i}">${esc(r.name)}</option>`).join('');
@@ -276,13 +393,22 @@ $('recipeHistorySelect').onchange=()=>{
   const x=history[i];
   $('ingName').value=x.name;
   $('ingBaseAmount').value=x.base||100;
+  $('ingQty').value=x.base||100;
+  $('ingUnit').value='g';
   $('ingAmount').value=x.base||100;
   $('ingKcal').value=x.kcal||0;
   $('ingP').value=x.p||0;
   $('ingF').value=x.f||0;
   $('ingC').value=x.c||0;
   $('ingSalt').value=x.salt||0;
+  updateIngredientConversion();
 };
+
+
+$('ingName').addEventListener('change', applyIngredientDB);
+$('ingName').addEventListener('blur', applyIngredientDB);
+$('ingQty').addEventListener('input', updateIngredientConversion);
+$('ingUnit').addEventListener('change', updateIngredientConversion);
 
 $('addIngredient').onclick=()=>{
   const name=$('ingName').value.trim();
@@ -578,7 +704,7 @@ $('saveGoals').onclick=()=>{
   render();
 };
 $('goalKcal').value=goals.kcal;$('goalP').value=goals.p;$('goalF').value=goals.f;$('goalC').value=goals.c;
-renderHistory();renderSavedRecipes();renderIngredients();updateScaled();loadDate(todayKey());
+renderHistory();renderIngredientFoodList();renderSavedRecipes();renderIngredients();updateIngredientConversion();updateScaled();loadDate(todayKey());
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
 </body></html>
