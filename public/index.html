@@ -36,7 +36,12 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 .recipe-ai-preview{display:none;margin-top:10px}
 .recipe-ai-row{display:grid;grid-template-columns:1.6fr .65fr .85fr;gap:8px;align-items:end;padding:10px 0;border-bottom:1px solid #e7e7e7}
 .recipe-ai-status{font-size:12px;margin-top:5px;color:#777}
-.recipe-ai-status.ok{color:#157347}.recipe-ai-status.warn{color:#b45309}
+.recipe-ai-status.ok{color:#157347}
+.recipe-ai-status.alias{color:#0f766e}
+.recipe-ai-status.ai{color:#6d28d9}
+.recipe-ai-status.warn{color:#b45309}
+.resolve-badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;margin-left:6px;background:#ececf1}
+.ai-estimate-note{font-size:12px;color:#6d28d9;margin-top:3px}
 @media(max-width:520px){.recipe-ai-row{grid-template-columns:1fr 1fr}.recipe-ai-row .wide{grid-column:1/-1}}
 @media(max-width:520px){.unit-row{grid-template-columns:1fr 1fr}}
 .datebar{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.datebar button{width:auto}.food-actions{display:flex;gap:6px;align-items:center}.sticky{position:fixed;left:0;right:0;bottom:0;background:rgba(245,245,247,.94);padding:10px 14px}.sticky>div{max-width:560px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -44,7 +49,7 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 </head>
 <body>
 <div class="app">
-<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録</div>
+<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.0</span></div>
 <div class="card">
   <div class="datebar">
     <div>
@@ -272,12 +277,126 @@ const ingredientDB = [
   {name:'小麦粉', kcal:349, p:8.3, f:1.5, c:75.8, salt:0, tbsp_g:9, tsp_g:3, ml_g:0.6},
   {name:'パン粉', kcal:369, p:14.6, f:6.8, c:63.4, salt:1.2, tbsp_g:3, tsp_g:1, ml_g:0.2},
   {name:'にんにく', kcal:129, p:6.4, f:0.9, c:27.5, salt:0, clove_g:5, piece_g:5, ml_g:1},
+  {name:'しょうが', kcal:28, p:0.9, f:0.3, c:6.6, salt:0, tbsp_g:12, tsp_g:4, clove_g:10, ml_g:1},
+  {name:'赤パプリカ', kcal:28, p:1.0, f:0.2, c:7.2, salt:0, piece_g:150, ml_g:1},
+  {name:'黄パプリカ', kcal:28, p:1.0, f:0.2, c:7.2, salt:0, piece_g:150, ml_g:1},
+  {name:'白菜', kcal:13, p:0.8, f:0.1, c:3.2, salt:0, sheet_g:80, ml_g:1},
+  {name:'長ねぎ', kcal:35, p:1.4, f:0.1, c:8.3, salt:0, stick_g:100, ml_g:1},
+  {name:'しいたけ', kcal:25, p:3.1, f:0.4, c:6.4, salt:0, piece_g:20, ml_g:1},
+  {name:'しめじ', kcal:26, p:2.7, f:0.6, c:5.0, salt:0, ml_g:1},
+  {name:'えのき', kcal:34, p:2.7, f:0.2, c:7.6, salt:0, ml_g:1},
+  {name:'ごま油', kcal:921, p:0, f:100, c:0, salt:0, tbsp_g:12, tsp_g:4, ml_g:0.8},
+  {name:'酢', kcal:25, p:0.1, f:0, c:2.4, salt:0, tbsp_g:15, tsp_g:5, ml_g:1},
+  {name:'ポン酢', kcal:47, p:3.4, f:0.1, c:8.0, salt:7.8, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'ウスターソース', kcal:117, p:1.0, f:0.1, c:26.6, salt:8.4, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'中濃ソース', kcal:131, p:0.9, f:0.1, c:30.9, salt:5.8, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'めんつゆ（3倍濃縮）', kcal:98, p:4.0, f:0, c:20.0, salt:10.0, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'鶏がらスープの素', kcal:200, p:12, f:5, c:28, salt:45, tbsp_g:9, tsp_g:3, ml_g:0.6},
+  {name:'コンソメ顆粒', kcal:235, p:7, f:7, c:36, salt:45, tbsp_g:9, tsp_g:3, ml_g:0.6},
+  {name:'豆板醤', kcal:60, p:2.0, f:2.5, c:8.0, salt:17, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'甜麺醤', kcal:250, p:8, f:5, c:45, salt:7, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'豚ばら肉', kcal:366, p:14.4, f:35.4, c:0.1, salt:0.1, ml_g:1},
+  {name:'豚ロース肉', kcal:248, p:19.3, f:19.2, c:0.2, salt:0.1, ml_g:1},
+  {name:'豚ひき肉', kcal:209, p:17.7, f:17.2, c:0.1, salt:0.1, ml_g:1},
+  {name:'鶏ひき肉', kcal:171, p:17.5, f:12.0, c:0, salt:0.1, ml_g:1},
+  {name:'牛ひき肉', kcal:251, p:17.1, f:21.1, c:0.3, salt:0.1, ml_g:1},
 ];
 
+const ingredientAliases = {
+  'たまねぎ':'玉ねぎ','タマネギ':'玉ねぎ',
+  '玉葱':'玉ねぎ',
+  '赤ピーマン':'赤パプリカ','パプリカ赤':'赤パプリカ',
+  '黄ピーマン':'黄パプリカ','パプリカ黄':'黄パプリカ',
+  'おろししょうが':'しょうが','すりおろししょうが':'しょうが','生姜':'しょうが',
+  'おろしにんにく':'にんにく','すりおろしにんにく':'にんにく','ニンニク':'にんにく',
+  'サラダ油':'食用油','植物油':'食用油','油':'食用油',
+  '醤油':'しょうゆ','濃口しょうゆ':'しょうゆ','濃口醤油':'しょうゆ',
+  '酒':'料理酒','日本酒':'料理酒',
+  'みりん風調味料':'みりん',
+  '上白糖':'砂糖','グラニュー糖':'砂糖',
+  '鶏ガラスープの素':'鶏がらスープの素','鶏がらスープ':'鶏がらスープの素','中華だし':'鶏がらスープの素',
+  '鶏がら顆粒':'鶏がらスープの素',
+  '豚バラ':'豚ばら肉','豚バラ肉':'豚ばら肉','豚バラ薄切り':'豚ばら肉','豚ばら薄切り':'豚ばら肉',
+  '豚こま':'豚こま切れ肉','豚こま肉':'豚こま切れ肉','豚肉こま切れ':'豚こま切れ肉',
+  '牛こま':'牛こま切れ肉','牛こま肉':'牛こま切れ肉',
+  '鶏むね':'鶏むね肉（皮なし）','鶏胸肉':'鶏むね肉（皮なし）','鶏むね肉':'鶏むね肉（皮なし）',
+  '鶏もも':'鶏もも肉（皮なし）','鶏腿肉':'鶏もも肉（皮なし）','鶏もも肉':'鶏もも肉（皮なし）',
+  'たまご':'卵','玉子':'卵',
+  '絹豆腐':'木綿豆腐',
+  '白ごはん':'ごはん（炊飯後）','ご飯':'ごはん（炊飯後）','ごはん':'ごはん（炊飯後）',
+  'オイスター':'オイスターソース',
+  'ウスター':'ウスターソース',
+  '中濃':'中濃ソース',
+  'ごま油（胡麻油）':'ごま油',
+  '片栗こ':'片栗粉'
+};
+
+function normalizeIngredientKey(name){
+  return (name||'')
+    .trim()
+    .toLowerCase()
+    .replace(/[ 　]/g,'')
+    .replace(/[（）()]/g,'')
+    .replace(/薄切り|細切り|みじん切り|角切り|千切り|輪切り|くし切り|一口大|適量|少々/g,'');
+}
+
 function findIngredientDB(name){
-  const n=(name||'').trim().toLowerCase();
-  return ingredientDB.find(x=>x.name.toLowerCase()===n) ||
-         ingredientDB.find(x=>x.name.toLowerCase().includes(n) || n.includes(x.name.toLowerCase()));
+  const raw=(name||'').trim();
+  if(!raw)return null;
+
+  // 1. 完全一致
+  let hit=ingredientDB.find(x=>x.name===raw);
+  if(hit)return {...hit,_match:'exact',_original:raw};
+
+  // 2. 別名辞書
+  const alias=ingredientAliases[raw];
+  if(alias){
+    hit=ingredientDB.find(x=>x.name===alias);
+    if(hit)return {...hit,_match:'alias',_original:raw,_alias:alias};
+  }
+
+  // 3. 正規化後の一致・部分一致
+  const n=normalizeIngredientKey(raw);
+  for(const [a,target] of Object.entries(ingredientAliases)){
+    if(normalizeIngredientKey(a)===n){
+      hit=ingredientDB.find(x=>x.name===target);
+      if(hit)return {...hit,_match:'alias',_original:raw,_alias:target};
+    }
+  }
+
+  hit=ingredientDB.find(x=>normalizeIngredientKey(x.name)===n);
+  if(hit)return {...hit,_match:'normalized',_original:raw};
+
+  hit=ingredientDB.find(x=>{
+    const xn=normalizeIngredientKey(x.name);
+    return n.length>=2 && (xn.includes(n) || n.includes(xn));
+  });
+  if(hit)return {...hit,_match:'similar',_original:raw};
+
+  return null;
+}
+
+function ingredientNutritionFromResolved(x){
+  if(x?.nutrition && Number.isFinite(Number(x.nutrition.kcal))){
+    return {
+      name:x.resolved_name||x.name,
+      kcal:Number(x.nutrition.kcal)||0,
+      p:Number(x.nutrition.p)||0,
+      f:Number(x.nutrition.f)||0,
+      c:Number(x.nutrition.c)||0,
+      salt:Number(x.nutrition.salt)||0,
+      tbsp_g:Number(x.nutrition.tbsp_g)||undefined,
+      tsp_g:Number(x.nutrition.tsp_g)||undefined,
+      piece_g:Number(x.nutrition.piece_g)||undefined,
+      sheet_g:Number(x.nutrition.sheet_g)||undefined,
+      stick_g:Number(x.nutrition.stick_g)||undefined,
+      clove_g:Number(x.nutrition.clove_g)||undefined,
+      ml_g:Number(x.nutrition.ml_g)||undefined,
+      _match:x.source||'ai',
+      _original:x.name
+    };
+  }
+  return findIngredientDB(x?.resolved_name||x?.name);
 }
 
 function conversionFactor(item, unit){
@@ -340,7 +459,7 @@ function renderIngredients(){
   $('ingredientList').innerHTML=recipeIngredients.length?recipeIngredients.map((x,i)=>`
     <div class="ingredient">
       <div>
-        <b>${esc(x.name)}</b>
+        <b>${esc(x.name)}${x.source==='ai_estimate'?' <span class="resolve-badge">AI推定</span>':''}</b>
         <div class="meta">${x.amount}g・${x.kcal}kcal</div>
         <div class="meta">P ${x.p}g / F ${x.f}g / C ${x.c}g</div>
       </div>
@@ -457,14 +576,31 @@ function normalizeAIUnit(u){
   if(['片','かけ','clove'].includes(s))return 'clove';
   return 'g';
 }
+function getAIIngredientState(x){
+  const local=findIngredientDB(x.name);
+  if(local){
+    const kind=local._match==='exact'?'exact':'alias';
+    return {kind, item:local, label:kind==='exact'?'食材DB一致':'表記ゆれを自動補正', detail:local.name};
+  }
+  if(x.nutrition){
+    return {kind:'ai', item:ingredientNutritionFromResolved(x), label:'AI推定値', detail:x.resolved_name||x.name};
+  }
+  return {kind:'warn', item:null, label:'栄養データ未解決', detail:''};
+}
+
 function renderAIRecipeRows(){
   $('recipeAIRows').innerHTML=aiRecipeIngredients.map((x,i)=>{
-    const db=findIngredientDB(x.name);
+    const st=getAIIngredientState(x);
+    const cls=st.kind==='exact'?'ok':st.kind==='alias'?'alias':st.kind==='ai'?'ai':'warn';
+    const badge=st.kind==='exact'?'DB':st.kind==='alias'?'自動補正':st.kind==='ai'?'AI推定':'未解決';
     return `<div class="recipe-ai-row">
       <div class="wide">
         <div class="label">材料名</div>
-        <input list="ingredientFoodList" value="${esc(x.name||'')}" oninput="aiRecipeIngredients[${i}].name=this.value;renderAIRecipeStatus(${i})">
-        <div id="aiStatus${i}" class="recipe-ai-status ${db?'ok':'warn'}">${db?'栄養データ候補あり':'栄養データ候補なし・名前を確認'}</div>
+        <input list="ingredientFoodList" value="${esc(x.name||'')}" oninput="aiRecipeIngredients[${i}].name=this.value;aiRecipeIngredients[${i}].nutrition=null;aiRecipeIngredients[${i}].resolved_name='';renderAIRecipeStatus(${i})">
+        <div id="aiStatus${i}" class="recipe-ai-status ${cls}">
+          ${st.label}<span class="resolve-badge">${badge}</span>${st.detail?` → ${esc(st.detail)}`:''}
+        </div>
+        ${st.kind==='ai'?'<div class="ai-estimate-note">※ AIによる概算値。商品や部位で差が出るため必要なら修正してください。</div>':''}
       </div>
       <div><div class="label">数量</div><input type="number" step="0.1" value="${Number(x.quantity)||0}" oninput="aiRecipeIngredients[${i}].quantity=Number(this.value)||0"></div>
       <div><div class="label">単位</div>
@@ -475,11 +611,15 @@ function renderAIRecipeRows(){
     </div>`;
   }).join('');
 }
+
 window.renderAIRecipeStatus=(i)=>{
   const el=$('aiStatus'+i); if(!el)return;
-  const ok=!!findIngredientDB(aiRecipeIngredients[i].name);
-  el.className='recipe-ai-status '+(ok?'ok':'warn');
-  el.textContent=ok?'栄養データ候補あり':'栄養データ候補なし・名前を確認';
+  const x=aiRecipeIngredients[i];
+  const st=getAIIngredientState(x);
+  const cls=st.kind==='exact'?'ok':st.kind==='alias'?'alias':st.kind==='ai'?'ai':'warn';
+  const badge=st.kind==='exact'?'DB':st.kind==='alias'?'自動補正':st.kind==='ai'?'AI推定':'未解決';
+  el.className='recipe-ai-status '+cls;
+  el.innerHTML=`${st.label}<span class="resolve-badge">${badge}</span>${st.detail?` → ${esc(st.detail)}`:''}`;
 };
 
 $('recipeImageInput').onchange=e=>{
@@ -506,9 +646,38 @@ $('analyzeRecipeBtn').onclick=async()=>{
     aiRecipeIngredients=(Array.isArray(d.ingredients)?d.ingredients:[]).map(x=>({
       name:x.name||'',
       quantity:Number(x.quantity)||0,
-      unit:normalizeAIUnit(x.unit)
+      unit:normalizeAIUnit(x.unit),
+      resolved_name:'',
+      source:'',
+      nutrition:null
     }));
     if(!aiRecipeIngredients.length)throw new Error('材料を読み取れませんでした');
+
+    // ローカルDBで見つからない材料だけAIで標準化・栄養補完
+    const unresolved=aiRecipeIngredients
+      .map((x,i)=>({i,name:x.name,unit:x.unit}))
+      .filter(x=>!findIngredientDB(x.name));
+
+    if(unresolved.length){
+      $('analyzeRecipeBtn').textContent=`栄養データ補完中…（${unresolved.length}件）`;
+      const rr=await fetch('/api/resolve-ingredients',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ingredients:unresolved})
+      });
+      const rraw=await rr.text();
+      if(rr.ok){
+        const rd=JSON.parse(rraw);
+        (Array.isArray(rd.ingredients)?rd.ingredients:[]).forEach(y=>{
+          const target=aiRecipeIngredients[Number(y.i)];
+          if(!target)return;
+          target.resolved_name=y.resolved_name||target.name;
+          target.source=y.source||'ai';
+          target.nutrition=y.nutrition||null;
+        });
+      }
+    }
+
     renderAIRecipeRows();
     $('recipeAIResult').style.display='block';
   }catch(e){
@@ -521,31 +690,42 @@ $('analyzeRecipeBtn').onclick=async()=>{
 
 $('addAIIngredients').onclick=()=>{
   if(!aiRecipeIngredients.length)return;
-  let added=0, skipped=[];
+  let added=0, skipped=[], aiCount=0, correctedCount=0;
+
   aiRecipeIngredients.forEach(x=>{
-    const db=findIngredientDB(x.name);
+    const local=findIngredientDB(x.name);
+    const db=local || ingredientNutritionFromResolved(x);
     if(!db){skipped.push(x.name||'名称不明');return}
+
+    if(!local && x.nutrition) aiCount++;
+    if(local && local._match!=='exact') correctedCount++;
+
     const unit=normalizeAIUnit(x.unit);
     const qty=Math.max(0,Number(x.quantity)||0);
     const grams=r1(qty*conversionFactor(db,unit));
     const ratio=grams/100;
+
     recipeIngredients.push({
-      name:db.name,
+      name:db.name || x.resolved_name || x.name,
       amount:grams,
-      kcal:r1(db.kcal*ratio),
-      p:r1(db.p*ratio),
-      f:r1(db.f*ratio),
-      c:r1(db.c*ratio),
-      salt:r1((db.salt||0)*ratio)
+      kcal:r1((Number(db.kcal)||0)*ratio),
+      p:r1((Number(db.p)||0)*ratio),
+      f:r1((Number(db.f)||0)*ratio),
+      c:r1((Number(db.c)||0)*ratio),
+      salt:r1((Number(db.salt)||0)*ratio),
+      source:(!local && x.nutrition)?'ai_estimate':(local?local._match:'db')
     });
     added++;
   });
+
   renderIngredients();
-  if(skipped.length){
-    alert(`${added}件を追加しました。\n\n栄養データ候補が見つからず追加しなかった材料:\n・${skipped.join('\n・')}`);
-  }else{
-    alert(`${added}件の材料を一括追加しました`);
-  }
+
+  let msg=`${added}件の材料を一括追加しました`;
+  if(correctedCount) msg+=`\n・表記ゆれ自動補正：${correctedCount}件`;
+  if(aiCount) msg+=`\n・AI推定値：${aiCount}件`;
+  if(skipped.length) msg+=`\n\n未解決で追加しなかった材料:\n・${skipped.join('\n・')}`;
+  if(aiCount) msg+=`\n\n※ AI推定値は概算です。必要に応じて修正してください。`;
+  alert(msg);
 };
 
 $('commercialTab').onclick=()=>{
