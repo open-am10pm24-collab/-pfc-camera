@@ -85,8 +85,8 @@ app.post("/api/analyze-recipe", async (req, res) => {
 
 quantity は数値だけ。分量が「適量」「少々」「お好み」など数値化できない場合は null。
 unit は原文に近い単位を次のいずれかへ正規化してください:
-g, ml, 大さじ, 小さじ, 個, 枚, 本, 片。
-「1/2個」は quantity=0.5, unit="個" のようにしてください。
+g, ml, 大さじ, 小さじ, 個, 枚, 本, 片, 袋, パック。
+「1/2個」は quantity=0.5, unit="個" のようにしてください。\n「1袋」「1パック」は quantity=1, unit="袋" / "パック" のように保持し、勝手に1gへ変換しないでください。
 栄養成分は推測・計算しないでください。
 {"recipe_name":string|null,"ingredients":[{"name":string,"quantity":number|null,"unit":string|null}]}`
           },
@@ -121,7 +121,7 @@ app.post("/api/resolve-ingredients", async (req, res) => {
       "しょうゆ","みりん","料理酒","砂糖","塩","味噌","マヨネーズ","ケチャップ",
       "オイスターソース","片栗粉","小麦粉","パン粉","にんにく","しょうが",
       "酢","ポン酢","ウスターソース","中濃ソース","めんつゆ（3倍濃縮）",
-      "鶏がらスープの素","コンソメ顆粒","豆板醤","甜麺醤","白だし","焼肉のたれ","めんつゆ（2倍濃縮）","粒マスタード","はちみつ","バター","マーガリン","粉チーズ","スライスチーズ","牛乳","無調整豆乳","ヨーグルト無糖","納豆","鮭","さば","たら","まぐろ赤身","えび","いか","大根","きゅうり","トマト","ブロッコリー","ほうれん草","小松菜","なす","かぼちゃ","さつまいも","れんこん","ごぼう","しらたき","鶏ささみ","鶏手羽元","鶏手羽先","豚もも肉","牛もも肉"
+      "鶏がらスープの素","和風だし顆粒","コンソメ顆粒","豆板醤","甜麺醤","白だし","焼肉のたれ","めんつゆ（2倍濃縮）","粒マスタード","はちみつ","バター","マーガリン","粉チーズ","スライスチーズ","牛乳","無調整豆乳","ヨーグルト無糖","納豆","鮭","さば","たら","まぐろ赤身","えび","いか","大根","きゅうり","トマト","ブロッコリー","ほうれん草","小松菜","なす","かぼちゃ","さつまいも","れんこん","ごぼう","しらたき","鶏ささみ","鶏手羽元","鶏手羽先","豚もも肉","牛もも肉"
     ];
 
     const response = await openai.responses.create({
@@ -139,11 +139,15 @@ app.post("/api/resolve-ingredients", async (req, res) => {
 - 候補がない場合だけ一般的な標準食品名を作り、100gあたりの栄養を概算する。
 - 商品名、ブランド名、切り方などの修飾語は栄養計算に不要なら一般食品へ寄せる。
 - 例: 豚バラ薄切り→豚ばら肉、おろししょうが→しょうが、サラダ油→食用油。
+- 「ほんだし」「本だし」「かつおだし顆粒」は必ず「和風だし顆粒」へ寄せる。
+- 「ほんだし」を「鶏がらスープの素」にしてはいけない。
+- 「鶏がらスープの素」は中華系の鶏だし、「和風だし顆粒」は鰹系の和風だしとして別食品に扱う。
+- 「白滝1袋」「しらたき1袋」は unit を「袋」のまま保持する。
 - confidence は "高" / "中" / "低"。
 - match_reason は短い日本語。
 - source は候補一致なら "candidate_match"、候補がなければ "ai_estimate"。
 - nutrition は100gあたりの kcal,p,f,c,salt を返す。
-- 大さじ/小さじ/個/枚/本/片/ml の重量換算も分かるものだけ返す。
+- 大さじ/小さじ/個/枚/本/片/袋/パック/ml の重量換算も分かるものだけ返す。
 
 候補リスト:
 ${JSON.stringify(candidateNames)}
@@ -152,7 +156,7 @@ ${JSON.stringify(candidateNames)}
 ${JSON.stringify(ingredients)}
 
 JSONだけ返してください:
-{"ingredients":[{"i":number,"resolved_name":string,"source":"candidate_match"|"ai_estimate","confidence":"高"|"中"|"低","match_reason":string,"nutrition":{"kcal":number,"p":number,"f":number,"c":number,"salt":number,"tbsp_g":number|null,"tsp_g":number|null,"piece_g":number|null,"sheet_g":number|null,"stick_g":number|null,"clove_g":number|null,"ml_g":number|null}}]}`
+{"ingredients":[{"i":number,"resolved_name":string,"source":"candidate_match"|"ai_estimate","confidence":"高"|"中"|"低","match_reason":string,"nutrition":{"kcal":number,"p":number,"f":number,"c":number,"salt":number,"tbsp_g":number|null,"tsp_g":number|null,"piece_g":number|null,"sheet_g":number|null,"stick_g":number|null,"clove_g":number|null,"bag_g":number|null,"pack_g":number|null,"ml_g":number|null}}]}`
         }]
       }]
     });
