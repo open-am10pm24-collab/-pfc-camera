@@ -49,7 +49,7 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 </head>
 <body>
 <div class="app">
-<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.4</span></div>
+<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.5</span></div>
 <div class="card">
   <div class="datebar">
     <div>
@@ -102,7 +102,7 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
       <div id="learnedFoodCount" class="db-note" style="margin-bottom:8px"></div>
       <div id="recipeAIRows"></div>
       <button id="addAIIngredients" type="button" style="margin-top:10px">確認した材料を一括追加</button>
-      <div class="db-note">「○○・△△・□□ 各大さじ4」のような表記は各材料へ展開して読み取ります。数量0・0g換算の材料は一括追加・料理登録・学習のすべてでブロックします。AI補完食品は「この料理を登録」が正常に完了した時点でのみ学習します。</div>
+      <div class="db-note">「○○・△△・□□ 各大さじ4」のような表記は各材料へ展開して読み取ります。「1袋」「1パック」は単位を保持して食品ごとの目安重量でg換算します。数量0・0g換算の材料は一括追加・料理登録・学習のすべてでブロックします。AI補完食品は「この料理を登録」が正常に完了した時点でのみ学習します。</div>
     </div>
   </div>
 
@@ -134,6 +134,8 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
           <option value="sheet">枚</option>
           <option value="stick">本</option>
           <option value="clove">片</option>
+          <option value="bag">袋</option>
+          <option value="pack">パック</option>
         </select>
       </div>
       <div>
@@ -294,6 +296,7 @@ const ingredientDB = [
   {name:'めんつゆ（3倍濃縮）', kcal:98, p:4.0, f:0, c:20.0, salt:10.0, tbsp_g:18, tsp_g:6, ml_g:1.2},
   {name:'鶏がらスープの素', kcal:200, p:12, f:5, c:28, salt:45, tbsp_g:9, tsp_g:3, ml_g:0.6},
   {name:'コンソメ顆粒', kcal:235, p:7, f:7, c:36, salt:45, tbsp_g:9, tsp_g:3, ml_g:0.6},
+  {name:'和風だし顆粒', kcal:220, p:15.0, f:1.0, c:38.0, salt:40.0, tbsp_g:9, tsp_g:3, bag_g:8, pack_g:8, ml_g:0.6},
   {name:'豆板醤', kcal:60, p:2.0, f:2.5, c:8.0, salt:17, tbsp_g:18, tsp_g:6, ml_g:1.2},
   {name:'甜麺醤', kcal:250, p:8, f:5, c:45, salt:7, tbsp_g:18, tsp_g:6, ml_g:1.2},
   {name:'豚ばら肉', kcal:366, p:14.4, f:35.4, c:0.1, salt:0.1, ml_g:1},
@@ -323,7 +326,7 @@ const ingredientDB = [
   {name:'さつまいも', kcal:126, p:1.2, f:0.2, c:31.9, salt:0, piece_g:250, ml_g:1},
   {name:'れんこん', kcal:66, p:1.9, f:0.1, c:15.5, salt:0, ml_g:1},
   {name:'ごぼう', kcal:58, p:1.8, f:0.1, c:15.4, salt:0, stick_g:150, ml_g:1},
-  {name:'しらたき', kcal:7, p:0.2, f:0, c:3.0, salt:0, ml_g:1},
+  {name:'しらたき', kcal:7, p:0.2, f:0, c:3.0, salt:0, bag_g:200, pack_g:200, ml_g:1},
   {name:'納豆', kcal:184, p:16.5, f:10.0, c:12.1, salt:0.5, pack_g:45, ml_g:1},
   {name:'ヨーグルト無糖', kcal:56, p:3.6, f:3.0, c:4.9, salt:0.1, ml_g:1.03},
   {name:'牛乳', kcal:61, p:3.3, f:3.8, c:4.8, salt:0.1, ml_g:1.03},
@@ -366,6 +369,9 @@ const ingredientAliases = {
   '中濃':'中濃ソース',
   'ごま油（胡麻油）':'ごま油',
   '片栗こ':'片栗粉',
+  '白滝':'しらたき','しらたき':'しらたき',
+  'ほんだし':'和風だし顆粒','本だし':'和風だし顆粒',
+  '和風だし':'和風だし顆粒','かつおだし顆粒':'和風だし顆粒','顆粒かつおだし':'和風だし顆粒',
   'こいくちしょうゆ':'しょうゆ','濃口しょうゆ':'しょうゆ','濃口醤油':'しょうゆ',
   'うすくちしょうゆ':'しょうゆ','薄口しょうゆ':'しょうゆ',
   '清酒':'料理酒','日本酒':'料理酒',
@@ -407,6 +413,8 @@ function upsertCustomFood(item){
     sheet_g:item.sheet_g?Number(item.sheet_g):undefined,
     stick_g:item.stick_g?Number(item.stick_g):undefined,
     clove_g:item.clove_g?Number(item.clove_g):undefined,
+    bag_g:item.bag_g?Number(item.bag_g):undefined,
+    pack_g:item.pack_g?Number(item.pack_g):undefined,
     ml_g:item.ml_g?Number(item.ml_g):undefined,
     learned:true,
     savedAt:Date.now()
@@ -493,6 +501,8 @@ function ingredientNutritionFromResolved(x){
       sheet_g:Number(x.nutrition.sheet_g)||undefined,
       stick_g:Number(x.nutrition.stick_g)||undefined,
       clove_g:Number(x.nutrition.clove_g)||undefined,
+      bag_g:Number(x.nutrition.bag_g)||undefined,
+      pack_g:Number(x.nutrition.pack_g)||undefined,
       ml_g:Number(x.nutrition.ml_g)||undefined,
       _match:x.source||'ai',
       _original:x.name
@@ -510,11 +520,13 @@ function conversionFactor(item, unit){
   if(unit==='sheet') return item?.sheet_g ?? 10;
   if(unit==='stick') return item?.stick_g ?? 100;
   if(unit==='clove') return item?.clove_g ?? 5;
+  if(unit==='bag') return item?.bag_g ?? 100;
+  if(unit==='pack') return item?.pack_g ?? 100;
   return 1;
 }
 
 function unitLabel(unit){
-  return ({g:'g',ml:'ml',tbsp:'大さじ',tsp:'小さじ',piece:'個',sheet:'枚',stick:'本',clove:'片'})[unit]||unit;
+  return ({g:'g',ml:'ml',tbsp:'大さじ',tsp:'小さじ',piece:'個',sheet:'枚',stick:'本',clove:'片',bag:'袋',pack:'パック'})[unit]||unit;
 }
 
 function updateIngredientConversion(){
@@ -637,6 +649,8 @@ function learnConfirmedRecipeIngredients(){
       sheet_g:n.sheet_g,
       stick_g:n.stick_g,
       clove_g:n.clove_g,
+      bag_g:n.bag_g,
+      pack_g:n.pack_g,
       ml_g:n.ml_g
     });
 
@@ -721,6 +735,8 @@ function normalizeAIUnit(u){
   if(['枚','sheet'].includes(s))return 'sheet';
   if(['本','stick'].includes(s))return 'stick';
   if(['片','かけ','clove'].includes(s))return 'clove';
+  if(['袋','ふくろ','bag'].includes(s))return 'bag';
+  if(['パック','pack'].includes(s))return 'pack';
   return 'g';
 }
 function getAIIngredientState(x){
@@ -765,7 +781,7 @@ function renderAIRecipeRows(){
       <div><div class="label">数量</div><input type="number" step="0.1" value="${Number(x.quantity)||0}" oninput="aiRecipeIngredients[${i}].quantity=Number(this.value)||0"></div>
       <div><div class="label">単位</div>
         <select onchange="aiRecipeIngredients[${i}].unit=this.value">
-          ${['g','ml','tbsp','tsp','piece','sheet','stick','clove'].map(u=>`<option value="${u}" ${normalizeAIUnit(x.unit)===u?'selected':''}>${unitLabel(u)}</option>`).join('')}
+          ${['g','ml','tbsp','tsp','piece','sheet','stick','clove','bag','pack'].map(u=>`<option value="${u}" ${normalizeAIUnit(x.unit)===u?'selected':''}>${unitLabel(u)}</option>`).join('')}
         </select>
       </div>
     </div>`;
@@ -922,6 +938,8 @@ $('addAIIngredients').onclick=()=>{
         sheet_g:db.sheet_g,
         stick_g:db.stick_g,
         clove_g:db.clove_g,
+        bag_g:db.bag_g,
+        pack_g:db.pack_g,
         ml_g:db.ml_g
       }:null
     });
