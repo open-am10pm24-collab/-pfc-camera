@@ -49,7 +49,7 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 </head>
 <body>
 <div class="app">
-<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.1</span></div>
+<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.2</span></div>
 <div class="card">
   <div class="datebar">
     <div>
@@ -99,6 +99,7 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
     <img id="recipeImagePreview" class="photo">
     <button id="analyzeRecipeBtn" type="button" style="margin-top:10px">AIでレシピを読み取る</button>
     <div id="recipeAIResult" class="recipe-ai-preview">
+      <div id="learnedFoodCount" class="db-note" style="margin-bottom:8px"></div>
       <div id="recipeAIRows"></div>
       <button id="addAIIngredients" type="button" style="margin-top:10px">確認した材料を一括追加</button>
       <div class="db-note">栄養成分はアプリ内の食材候補と一致したものだけ自動補完します。見つからない材料は追加前に名前を修正するか、あとで手入力できます。</div>
@@ -300,6 +301,42 @@ const ingredientDB = [
   {name:'豚ひき肉', kcal:209, p:17.7, f:17.2, c:0.1, salt:0.1, ml_g:1},
   {name:'鶏ひき肉', kcal:171, p:17.5, f:12.0, c:0, salt:0.1, ml_g:1},
   {name:'牛ひき肉', kcal:251, p:17.1, f:21.1, c:0.3, salt:0.1, ml_g:1},
+  {name:'鶏ささみ', kcal:98, p:23.9, f:0.8, c:0.1, salt:0.1, ml_g:1},
+  {name:'鶏手羽元', kcal:175, p:18.2, f:12.8, c:0, salt:0.1, piece_g:60, ml_g:1},
+  {name:'鶏手羽先', kcal:207, p:17.8, f:16.2, c:0, salt:0.1, piece_g:50, ml_g:1},
+  {name:'豚もも肉', kcal:171, p:21.5, f:10.2, c:0.2, salt:0.1, ml_g:1},
+  {name:'牛もも肉', kcal:182, p:21.3, f:11.0, c:0.4, salt:0.1, ml_g:1},
+  {name:'鮭', kcal:124, p:22.3, f:4.1, c:0.1, salt:0.2, piece_g:80, ml_g:1},
+  {name:'さば', kcal:211, p:20.6, f:16.8, c:0.3, salt:0.3, piece_g:100, ml_g:1},
+  {name:'たら', kcal:72, p:17.6, f:0.2, c:0.1, salt:0.3, piece_g:80, ml_g:1},
+  {name:'まぐろ赤身', kcal:115, p:26.4, f:1.4, c:0.1, salt:0.1, ml_g:1},
+  {name:'えび', kcal:82, p:18.4, f:0.3, c:0.1, salt:0.7, piece_g:15, ml_g:1},
+  {name:'いか', kcal:76, p:17.9, f:0.8, c:0.1, salt:0.8, ml_g:1},
+  {name:'大根', kcal:15, p:0.5, f:0.1, c:4.1, salt:0, piece_g:900, ml_g:1},
+  {name:'きゅうり', kcal:13, p:1.0, f:0.1, c:3.0, salt:0, piece_g:100, ml_g:1},
+  {name:'トマト', kcal:20, p:0.7, f:0.1, c:4.7, salt:0, piece_g:150, ml_g:1},
+  {name:'ブロッコリー', kcal:37, p:5.4, f:0.6, c:6.6, salt:0, piece_g:250, ml_g:1},
+  {name:'ほうれん草', kcal:18, p:2.2, f:0.4, c:3.1, salt:0, ml_g:1},
+  {name:'小松菜', kcal:13, p:1.5, f:0.2, c:2.4, salt:0, ml_g:1},
+  {name:'なす', kcal:18, p:1.1, f:0.1, c:5.1, salt:0, piece_g:80, ml_g:1},
+  {name:'かぼちゃ', kcal:78, p:1.9, f:0.3, c:20.6, salt:0, ml_g:1},
+  {name:'さつまいも', kcal:126, p:1.2, f:0.2, c:31.9, salt:0, piece_g:250, ml_g:1},
+  {name:'れんこん', kcal:66, p:1.9, f:0.1, c:15.5, salt:0, ml_g:1},
+  {name:'ごぼう', kcal:58, p:1.8, f:0.1, c:15.4, salt:0, stick_g:150, ml_g:1},
+  {name:'しらたき', kcal:7, p:0.2, f:0, c:3.0, salt:0, ml_g:1},
+  {name:'納豆', kcal:184, p:16.5, f:10.0, c:12.1, salt:0.5, pack_g:45, ml_g:1},
+  {name:'ヨーグルト無糖', kcal:56, p:3.6, f:3.0, c:4.9, salt:0.1, ml_g:1.03},
+  {name:'牛乳', kcal:61, p:3.3, f:3.8, c:4.8, salt:0.1, ml_g:1.03},
+  {name:'無調整豆乳', kcal:43, p:3.6, f:2.8, c:2.3, salt:0, ml_g:1.02},
+  {name:'バター', kcal:700, p:0.6, f:81.0, c:0.2, salt:1.9, tbsp_g:12, tsp_g:4, ml_g:0.9},
+  {name:'マーガリン', kcal:715, p:0.4, f:83.1, c:1.5, salt:1.5, tbsp_g:12, tsp_g:4, ml_g:0.9},
+  {name:'粉チーズ', kcal:445, p:44.0, f:30.8, c:1.9, salt:3.8, tbsp_g:6, tsp_g:2, ml_g:0.4},
+  {name:'スライスチーズ', kcal:313, p:22.7, f:26.0, c:1.3, salt:2.8, sheet_g:18, ml_g:1},
+  {name:'白だし', kcal:50, p:2.5, f:0, c:8.0, salt:12.0, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'焼肉のたれ', kcal:145, p:3.5, f:1.0, c:30.0, salt:6.0, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'めんつゆ（2倍濃縮）', kcal:70, p:3.0, f:0, c:14.0, salt:7.0, tbsp_g:18, tsp_g:6, ml_g:1.2},
+  {name:'粒マスタード', kcal:190, p:7.5, f:12.0, c:12.0, salt:4.5, tbsp_g:15, tsp_g:5, ml_g:1.0},
+  {name:'はちみつ', kcal:329, p:0.3, f:0, c:81.9, salt:0, tbsp_g:21, tsp_g:7, ml_g:1.4},
 ];
 
 const ingredientAliases = {
@@ -342,6 +379,51 @@ const ingredientAliases = {
   '合わせ味噌':'味噌','白みそ':'味噌','赤みそ':'味噌'
 };
 
+
+let customFoodDB = JSON.parse(localStorage.getItem('pfc_custom_food_db') || '[]');
+
+function saveCustomFoodDB(){
+  localStorage.setItem('pfc_custom_food_db', JSON.stringify(customFoodDB));
+}
+
+function upsertCustomFood(item){
+  if(!item || !item.name) return;
+  const key=normalizeIngredientKey(item.name);
+  const idx=customFoodDB.findIndex(x=>normalizeIngredientKey(x.name)===key);
+  const clean={
+    name:item.name,
+    kcal:Number(item.kcal)||0,
+    p:Number(item.p)||0,
+    f:Number(item.f)||0,
+    c:Number(item.c)||0,
+    salt:Number(item.salt)||0,
+    tbsp_g:item.tbsp_g?Number(item.tbsp_g):undefined,
+    tsp_g:item.tsp_g?Number(item.tsp_g):undefined,
+    piece_g:item.piece_g?Number(item.piece_g):undefined,
+    sheet_g:item.sheet_g?Number(item.sheet_g):undefined,
+    stick_g:item.stick_g?Number(item.stick_g):undefined,
+    clove_g:item.clove_g?Number(item.clove_g):undefined,
+    ml_g:item.ml_g?Number(item.ml_g):undefined,
+    learned:true,
+    savedAt:Date.now()
+  };
+  if(idx>=0) customFoodDB[idx]=clean;
+  else customFoodDB.push(clean);
+  saveCustomFoodDB();
+}
+
+function findCustomFood(name){
+  const n=normalizeIngredientKey(name);
+  if(!n) return null;
+  let hit=customFoodDB.find(x=>normalizeIngredientKey(x.name)===n);
+  if(hit) return {...hit,_match:'learned',_original:name};
+  hit=customFoodDB.find(x=>{
+    const xn=normalizeIngredientKey(x.name);
+    return n.length>=2 && (xn.includes(n)||n.includes(xn));
+  });
+  return hit ? {...hit,_match:'learned',_original:name} : null;
+}
+
 function normalizeIngredientKey(name){
   return (name||'')
     .trim()
@@ -354,6 +436,10 @@ function normalizeIngredientKey(name){
 function findIngredientDB(name){
   const raw=(name||'').trim();
   if(!raw)return null;
+
+  // 0. この端末で一度採用した学習DB
+  const learned=findCustomFood(raw);
+  if(learned)return learned;
 
   // 1. 完全一致
   let hit=ingredientDB.find(x=>x.name===raw);
@@ -509,7 +595,7 @@ function resetIngredientForm(){
   $('conversionHint').textContent='100g として計算します。';
 }
 function renderIngredientFoodList(){
-  $('ingredientFoodList').innerHTML=ingredientDB.map(x=>`<option value="${esc(x.name)}"></option>`).join('');
+  $('ingredientFoodList').innerHTML=[...ingredientDB,...customFoodDB].map(x=>`<option value="${esc(x.name)}"></option>`).join('');
 }
 
 function resetRecipeFormAfterRegister(){
@@ -591,11 +677,11 @@ function normalizeAIUnit(u){
 function getAIIngredientState(x){
   const local=findIngredientDB(x.name);
   if(local){
-    const kind=local._match==='exact'?'exact':'alias';
+    const kind=local._match==='exact'?'exact':local._match==='learned'?'learned':'alias';
     return {
       kind,
       item:local,
-      label:kind==='exact'?'食材DB一致':'標準食品名へ自動補正',
+      label:kind==='exact'?'食材DB一致':kind==='learned'?'学習済み食品DB':'標準食品名へ自動補正',
       detail:local.name,
       confidence:'高'
     };
@@ -613,10 +699,11 @@ function getAIIngredientState(x){
 }
 
 function renderAIRecipeRows(){
+  if($('learnedFoodCount')) $('learnedFoodCount').textContent=`この端末の学習済み食品：${customFoodDB.length}件`;
   $('recipeAIRows').innerHTML=aiRecipeIngredients.map((x,i)=>{
     const st=getAIIngredientState(x);
-    const cls=st.kind==='exact'?'ok':st.kind==='alias'?'alias':st.kind==='ai'?'ai':'warn';
-    const badge=st.kind==='exact'?'DB':st.kind==='alias'?'標準化':st.kind==='ai'?'AI補完':'未解決';
+    const cls=(st.kind==='exact'||st.kind==='learned')?'ok':st.kind==='alias'?'alias':st.kind==='ai'?'ai':'warn';
+    const badge=st.kind==='exact'?'DB':st.kind==='learned'?'学習済み':st.kind==='alias'?'標準化':st.kind==='ai'?'AI補完':'未解決';
     return `<div class="recipe-ai-row">
       <div class="wide">
         <div class="label">材料名</div>
@@ -640,8 +727,8 @@ window.renderAIRecipeStatus=(i)=>{
   const el=$('aiStatus'+i); if(!el)return;
   const x=aiRecipeIngredients[i];
   const st=getAIIngredientState(x);
-  const cls=st.kind==='exact'?'ok':st.kind==='alias'?'alias':st.kind==='ai'?'ai':'warn';
-  const badge=st.kind==='exact'?'DB':st.kind==='alias'?'標準化':st.kind==='ai'?'AI補完':'未解決';
+  const cls=(st.kind==='exact'||st.kind==='learned')?'ok':st.kind==='alias'?'alias':st.kind==='ai'?'ai':'warn';
+  const badge=st.kind==='exact'?'DB':st.kind==='learned'?'学習済み':st.kind==='alias'?'標準化':st.kind==='ai'?'AI補完':'未解決';
   el.className='recipe-ai-status '+cls;
   el.innerHTML=`${st.label}<span class="resolve-badge">${badge}</span>${st.detail?` → ${esc(st.detail)}`:''}${st.confidence?` <span class="resolve-badge">信頼度:${esc(st.confidence)}</span>`:''}`;
 };
@@ -733,8 +820,9 @@ $('addAIIngredients').onclick=()=>{
     const grams=r1(qty*conversionFactor(db,unit));
     const ratio=grams/100;
 
+    const displayName=db.name || x.resolved_name || x.name;
     recipeIngredients.push({
-      name:db.name || x.resolved_name || x.name,
+      name:displayName,
       amount:grams,
       kcal:r1((Number(db.kcal)||0)*ratio),
       p:r1((Number(db.p)||0)*ratio),
@@ -745,6 +833,20 @@ $('addAIIngredients').onclick=()=>{
       resolvedName:x.resolved_name||db.name||x.name,
       confidence:x.confidence||''
     });
+
+    // AI補完をユーザーが「一括追加」で採用したら、この端末の食品DBに学習
+    if(!local && x.nutrition){
+      upsertCustomFood({
+        name:displayName,
+        kcal:Number(db.kcal)||0,
+        p:Number(db.p)||0,
+        f:Number(db.f)||0,
+        c:Number(db.c)||0,
+        salt:Number(db.salt)||0,
+        tbsp_g:db.tbsp_g, tsp_g:db.tsp_g, piece_g:db.piece_g,
+        sheet_g:db.sheet_g, stick_g:db.stick_g, clove_g:db.clove_g, ml_g:db.ml_g
+      });
+    }
     added++;
   });
 
