@@ -96,31 +96,47 @@ app.post("/api/resolve-ingredients", async (req, res) => {
     const ingredients = Array.isArray(req.body?.ingredients) ? req.body.ingredients : [];
     if (!ingredients.length) return res.json({ ingredients: [] });
 
+    const candidateNames = [
+      "玉ねぎ","キャベツ","にんじん","ピーマン","赤パプリカ","黄パプリカ","もやし",
+      "じゃがいも","白菜","長ねぎ","しいたけ","しめじ","えのき",
+      "鶏むね肉（皮なし）","鶏もも肉（皮なし）","豚こま切れ肉","豚ばら肉",
+      "豚ロース肉","豚ひき肉","牛こま切れ肉","牛ひき肉","鶏ひき肉","卵",
+      "木綿豆腐","ごはん（炊飯後）","食用油","オリーブオイル","ごま油",
+      "しょうゆ","みりん","料理酒","砂糖","塩","味噌","マヨネーズ","ケチャップ",
+      "オイスターソース","片栗粉","小麦粉","パン粉","にんにく","しょうが",
+      "酢","ポン酢","ウスターソース","中濃ソース","めんつゆ（3倍濃縮）",
+      "鶏がらスープの素","コンソメ顆粒","豆板醤","甜麺醤"
+    ];
+
     const response = await openai.responses.create({
       model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
       input: [{
         role: "user",
         content: [{
           type: "input_text",
-          text: `日本の家庭料理で使う食材名を、栄養計算用の一般的な食品名へ標準化してください。
-以下の食材はアプリ内データベースで見つからなかったものです。
+          text: `日本の家庭料理の材料名を栄養計算用に標準化してください。
 
-各項目について:
-1. resolved_name: 一般的で短い標準食品名。
-2. source: 必ず "ai_estimate"。
-3. nutrition: 100gあたりのおおよその kcal, P, F, C, 食塩相当量(g)。
-4. 元の単位が大さじ・小さじ・個・枚・本・片・mlの場合に使える重量換算の目安も、分かるものだけ返す。
-   tbsp_g=大さじ1のg、tsp_g=小さじ1のg、piece_g=1個のg、
-   sheet_g=1枚のg、stick_g=1本のg、clove_g=1片のg、ml_g=1mlのg。
-5. 不確かな値でも家庭用の概算として妥当な値を返す。ただし極端に断定しない。
-6. 調味料は食塩相当量も可能な範囲で推定する。
-7. 配列の i は入力の i をそのまま返す。
+最重要ルール:
+- まず候補リストの中に、同一・同義・一般的に対応する食品がないか探す。
+- 候補があれば resolved_name は必ず候補リスト内の名前にする。
+- 候補があるのに新しい食品名を作らない。
+- 候補がない場合だけ一般的な標準食品名を作り、100gあたりの栄養を概算する。
+- 商品名、ブランド名、切り方などの修飾語は栄養計算に不要なら一般食品へ寄せる。
+- 例: 豚バラ薄切り→豚ばら肉、おろししょうが→しょうが、サラダ油→食用油。
+- confidence は "高" / "中" / "低"。
+- match_reason は短い日本語。
+- source は候補一致なら "candidate_match"、候補がなければ "ai_estimate"。
+- nutrition は100gあたりの kcal,p,f,c,salt を返す。
+- 大さじ/小さじ/個/枚/本/片/ml の重量換算も分かるものだけ返す。
+
+候補リスト:
+${JSON.stringify(candidateNames)}
 
 入力:
 ${JSON.stringify(ingredients)}
 
 JSONだけ返してください:
-{"ingredients":[{"i":number,"resolved_name":string,"source":"ai_estimate","nutrition":{"kcal":number,"p":number,"f":number,"c":number,"salt":number,"tbsp_g":number|null,"tsp_g":number|null,"piece_g":number|null,"sheet_g":number|null,"stick_g":number|null,"clove_g":number|null,"ml_g":number|null}}]}`
+{"ingredients":[{"i":number,"resolved_name":string,"source":"candidate_match"|"ai_estimate","confidence":"高"|"中"|"低","match_reason":string,"nutrition":{"kcal":number,"p":number,"f":number,"c":number,"salt":number,"tbsp_g":number|null,"tsp_g":number|null,"piece_g":number|null,"sheet_g":number|null,"stick_g":number|null,"clove_g":number|null,"ml_g":number|null}}]}`
         }]
       }]
     });
