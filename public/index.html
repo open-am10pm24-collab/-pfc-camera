@@ -49,7 +49,7 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 </head>
 <body>
 <div class="app">
-<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.3</span></div>
+<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.4</span></div>
 <div class="card">
   <div class="datebar">
     <div>
@@ -102,7 +102,7 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
       <div id="learnedFoodCount" class="db-note" style="margin-bottom:8px"></div>
       <div id="recipeAIRows"></div>
       <button id="addAIIngredients" type="button" style="margin-top:10px">確認した材料を一括追加</button>
-      <div class="db-note">AI補完された食品は、この段階ではまだ学習しません。「この料理を登録」が正常に完了した時点で学習DBへ保存します。既存の学習済み食品は自動上書きしません。</div>
+      <div class="db-note">「○○・△△・□□ 各大さじ4」のような表記は各材料へ展開して読み取ります。数量0・0g換算の材料は一括追加・料理登録・学習のすべてでブロックします。AI補完食品は「この料理を登録」が正常に完了した時点でのみ学習します。</div>
     </div>
   </div>
 
@@ -613,8 +613,16 @@ function learnConfirmedRecipeIngredients(){
     // DB一致・標準化・既存学習済み食品は対象外。
     if(x.source!=='ai_estimate') return;
 
+    // 安全装置：0g / 不正な材料は絶対に学習しない
+    if(!Number.isFinite(Number(x.amount)) || Number(x.amount)<=0) return;
+
     const n=x.sourceNutrition;
     if(!n) return;
+
+    // 安全装置：栄養値が全部0、または不正値なら学習しない
+    const vals=[n.kcal,n.p,n.f,n.c,n.salt].map(Number);
+    if(vals.some(v=>!Number.isFinite(v))) return;
+    if(vals.every(v=>v===0)) return;
 
     const result=upsertCustomFood({
       name:x.resolvedName||x.name,
@@ -844,8 +852,33 @@ $('analyzeRecipeBtn').onclick=async()=>{
   }
 };
 
+
+function validateAIRecipeIngredientsBeforeAdd(){
+  const problems=[];
+  aiRecipeIngredients.forEach((x,i)=>{
+    const q=Number(x.quantity);
+    if(!x.name || !x.name.trim()){
+      problems.push(`${i+1}行目：材料名が空です`);
+    }
+    if(!Number.isFinite(q) || q<=0){
+      problems.push(`${x.name||`${i+1}行目`}：数量が0または未設定です`);
+    }
+  });
+  return problems;
+}
+
 $('addAIIngredients').onclick=()=>{
   if(!aiRecipeIngredients.length)return;
+
+  const problems=validateAIRecipeIngredientsBeforeAdd();
+  if(problems.length){
+    return alert(
+      '数量が正しくない材料があります。\n\n' +
+      problems.join('\n') +
+      '\n\nAI読み取り結果を修正してから一括追加してください。'
+    );
+  }
+
   let added=0, skipped=[], aiCount=0, correctedCount=0;
 
   aiRecipeIngredients.forEach(x=>{
@@ -859,6 +892,10 @@ $('addAIIngredients').onclick=()=>{
     const unit=normalizeAIUnit(x.unit);
     const qty=Math.max(0,Number(x.quantity)||0);
     const grams=r1(qty*conversionFactor(db,unit));
+    if(!Number.isFinite(grams) || grams<=0){
+      skipped.push(`${x.name||'名称不明'}（0g換算）`);
+      return;
+    }
     const ratio=grams/100;
 
     const displayName=db.name || x.resolved_name || x.name;
@@ -968,6 +1005,16 @@ $('saveRecipe').onclick=()=>{
   const finished=Math.max(0,num('recipeFinishedWeight'));
   if(!name)return alert('料理名を入力してください');
   if(!recipeIngredients.length)return alert('材料を1つ以上追加してください');
+
+  const invalidIngredients=recipeIngredients.filter(x=>!Number.isFinite(Number(x.amount)) || Number(x.amount)<=0);
+  if(invalidIngredients.length){
+    return alert(
+      '0gまたは不正な材料が含まれています。\n\n' +
+      invalidIngredients.map(x=>`・${x.name}`).join('\n') +
+      '\n\n材料を修正してから登録してください。'
+    );
+  }
+
   if(!finished)return alert('出来上がり総重量を入力してください');
   const data={name,finishedWeight:finished,ingredients:recipeIngredients};
   const idx=savedRecipes.findIndex(r=>r.name.toLowerCase()===name.toLowerCase());
@@ -1007,6 +1054,16 @@ $('registerRecipe').onclick=()=>{
 
   if(!name)return alert('料理名を入力してください');
   if(!recipeIngredients.length)return alert('材料を1つ以上追加してください');
+
+  const invalidIngredients=recipeIngredients.filter(x=>!Number.isFinite(Number(x.amount)) || Number(x.amount)<=0);
+  if(invalidIngredients.length){
+    return alert(
+      '0gまたは不正な材料が含まれています。\n\n' +
+      invalidIngredients.map(x=>`・${x.name}`).join('\n') +
+      '\n\n材料を修正してから登録してください。'
+    );
+  }
+
   if(!finished)return alert('出来上がり総重量を入力してください');
   if(!portion)return alert('今回食べた量を入力してください');
 
