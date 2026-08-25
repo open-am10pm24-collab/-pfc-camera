@@ -64,8 +64,11 @@ app.post("/api/analyze-recipe", async (req, res) => {
         content: [
           {
             type: "input_text",
-            text: `日本語のレシピ画像から「料理名」と「材料欄」を読み取り、JSONだけ返してください。
+            text: `日本語のレシピ画像から「料理名」「材料欄」に加えて、画像内で確認できる範囲の調理方法も読み取り、JSONだけ返してください。
 料理名が画像内で確認できなければ recipe_name は null。
+dish_type は「汁物・スープ」「煮物」「煮詰め」「炒め物」「焼き物」「蒸し物」「揚げ物」「鍋」「その他」などから最も近いもの。
+method_summary は、画像内に調理手順が見える場合だけ、水分変化の判断に役立つ短い要約を返してください。手順が見えなければ空文字。
+water_behavior は「水分をほぼ残す」「一部蒸発」「しっかり煮詰める」「食材水分が減る」「不明」のいずれか。画像から判断できない場合は「不明」。
 材料は画像に実際に書かれている内容だけを抽出し、推測で追加しないでください。
 
 重要:
@@ -88,7 +91,7 @@ unit は原文に近い単位を次のいずれかへ正規化してください
 g, ml, 大さじ, 小さじ, 個, 枚, 本, 片, 袋, パック。
 「1/2個」は quantity=0.5, unit="個" のようにしてください。\n「1袋」「1パック」は quantity=1, unit="袋" / "パック" のように保持し、勝手に1gへ変換しないでください。
 栄養成分は推測・計算しないでください。
-{"recipe_name":string|null,"ingredients":[{"name":string,"quantity":number|null,"unit":string|null}]}`
+{"recipe_name":string|null,"dish_type":string,"method_summary":string,"water_behavior":string,"ingredients":[{"name":string,"quantity":number|null,"unit":string|null}]}`
           },
           { type: "input_image", image_url: image }
         ]
@@ -169,6 +172,88 @@ JSONだけ返してください:
   } catch (e) {
     console.error("RESOLVE_INGREDIENTS_ERROR", e);
     res.status(500).send(e?.message || "ingredient resolve failed");
+  }
+});
+
+
+app.post("/api/predict-finished-weight", async (req, res) => {
+  try {
+    const recipeName = String(req.body?.recipe_name || "").trim();
+    const ingredientWeight = Number(req.body?.ingredient_weight || 0);
+    const ingredients = Array.isArray(req.body?.ingredients) ? req.body.ingredients : [];
+    const dishType = String(req.body?.dish_type || "");
+    const methodSummary = String(req.body?.method_summary || "");
+    const waterBehavior = String(req.body?.water_behavior || "");
+    const history = Array.isArray(req.body?.measured_history) ? req.body.measured_history.slice(-8) : [];
+
+    if (!recipeName || !ingredientWeight || !ingredients.length) {
+      return res.status(400).send("予測に必要な料理名・材料重量がありません");
+    }
+
+    const response = await openai.responses.create({
+      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+      input: [{
+        role: "user",
+        content: [{
+          type: "input_text",
+          text: `家庭料理の「調理後の完成重量」を概算してください。
+これは栄養計算で100gあたりの値を出すための参考値です。断定せず、必ず幅を持たせてください。
+
+重要ルール:
+- 材料重量合計をそのまま完成重量と決めつけない。
+- スープ・鍋・汁物は水分を比較的残す。
+- 煮物は煮汁の残し方で幅を広くする。
+- 「煮詰める」「汁気がなくなるまで」等があれば蒸発を多めに考える。
+- 炒め物・焼き物は食材自身の水分減少を考える。
+- 揚げ物は水分減少と油吸収の両方があり得る。
+- 手順情報が不足している場合は信頼度を下げ、範囲を広くする。
+- 過去の実測履歴がある場合は、それを最優先の参考情報の一つにする。
+- 過去履歴は同じユーザーの実測値なので、同じ料理名に近いほど重視する。
+- 推定値を実測値のように扱わない。
+- estimated_weight は min_weight と max_weight の間にする。
+- 完成重量は正の数値(g)。
+
+料理名: ${recipeName}
+材料重量合計: ${ingredientWeight}g
+材料: ${JSON.stringify(ingredients)}
+料理分類: ${dishType || "不明"}
+画像から読めた調理方法: ${methodSummary || "情報なし"}
+水分挙動: ${waterBehavior || "不明"}
+過去の実測履歴: ${JSON.stringify(history)}
+
+JSONだけ返してください:
+{"estimated_weight":number,"min_weight":number,"max_weight":number,"retention_rate":number,"dish_type":string,"reason":string,"confidence":"高"|"中"|"低","history_count":number}`
+        }]
+      }]
+    });
+
+    const text = response.output_text.trim()
+      .replace(/^```json\s*/, "")
+      .replace(/```$/, "");
+
+    const data = JSON.parse(text);
+
+    // 最低限の安全補正
+    let est = Number(data.estimated_weight);
+    let min = Number(data.min_weight);
+    let max = Number(data.max_weight);
+    if (!Number.isFinite(est) || est <= 0) est = ingredientWeight;
+    if (!Number.isFinite(min) || min <= 0) min = est * 0.9;
+    if (!Number.isFinite(max) || max <= 0) max = est * 1.1;
+    if (min > max) [min, max] = [max, min];
+    est = Math.min(max, Math.max(min, est));
+
+    res.json({
+      ...data,
+      estimated_weight: Math.round(est),
+      min_weight: Math.round(min),
+      max_weight: Math.round(max),
+      retention_rate: Number(data.retention_rate) || est / ingredientWeight,
+      history_count: history.length
+    });
+  } catch (e) {
+    console.error("PREDICT_FINISHED_WEIGHT_ERROR", e);
+    res.status(500).send(e?.message || "finished weight prediction failed");
   }
 });
 
