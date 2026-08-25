@@ -49,7 +49,7 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 </head>
 <body>
 <div class="app">
-<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.2</span></div>
+<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.3</span></div>
 <div class="card">
   <div class="datebar">
     <div>
@@ -102,7 +102,7 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
       <div id="learnedFoodCount" class="db-note" style="margin-bottom:8px"></div>
       <div id="recipeAIRows"></div>
       <button id="addAIIngredients" type="button" style="margin-top:10px">確認した材料を一括追加</button>
-      <div class="db-note">栄養成分はアプリ内の食材候補と一致したものだけ自動補完します。見つからない材料は追加前に名前を修正するか、あとで手入力できます。</div>
+      <div class="db-note">AI補完された食品は、この段階ではまだ学習しません。「この料理を登録」が正常に完了した時点で学習DBへ保存します。既存の学習済み食品は自動上書きしません。</div>
     </div>
   </div>
 
@@ -387,9 +387,13 @@ function saveCustomFoodDB(){
 }
 
 function upsertCustomFood(item){
-  if(!item || !item.name) return;
+  if(!item || !item.name) return 'invalid';
   const key=normalizeIngredientKey(item.name);
   const idx=customFoodDB.findIndex(x=>normalizeIngredientKey(x.name)===key);
+
+  // 既に学習済みなら勝手に上書きしない
+  if(idx>=0) return 'exists';
+
   const clean={
     name:item.name,
     kcal:Number(item.kcal)||0,
@@ -407,9 +411,10 @@ function upsertCustomFood(item){
     learned:true,
     savedAt:Date.now()
   };
-  if(idx>=0) customFoodDB[idx]=clean;
-  else customFoodDB.push(clean);
+
+  customFoodDB.push(clean);
   saveCustomFoodDB();
+  return 'added';
 }
 
 function findCustomFood(name){
@@ -598,6 +603,42 @@ function renderIngredientFoodList(){
   $('ingredientFoodList').innerHTML=[...ingredientDB,...customFoodDB].map(x=>`<option value="${esc(x.name)}"></option>`).join('');
 }
 
+
+function learnConfirmedRecipeIngredients(){
+  let learned=0;
+  let skippedExisting=0;
+
+  recipeIngredients.forEach(x=>{
+    // AI補完された材料だけを学習対象にする。
+    // DB一致・標準化・既存学習済み食品は対象外。
+    if(x.source!=='ai_estimate') return;
+
+    const n=x.sourceNutrition;
+    if(!n) return;
+
+    const result=upsertCustomFood({
+      name:x.resolvedName||x.name,
+      kcal:n.kcal,
+      p:n.p,
+      f:n.f,
+      c:n.c,
+      salt:n.salt,
+      tbsp_g:n.tbsp_g,
+      tsp_g:n.tsp_g,
+      piece_g:n.piece_g,
+      sheet_g:n.sheet_g,
+      stick_g:n.stick_g,
+      clove_g:n.clove_g,
+      ml_g:n.ml_g
+    });
+
+    if(result==='added') learned++;
+    if(result==='exists') skippedExisting++;
+  });
+
+  return {learned, skippedExisting};
+}
+
 function resetRecipeFormAfterRegister(){
   $('savedRecipeSelect').value='';
   $('recipeName').value='';
@@ -699,7 +740,7 @@ function getAIIngredientState(x){
 }
 
 function renderAIRecipeRows(){
-  if($('learnedFoodCount')) $('learnedFoodCount').textContent=`この端末の学習済み食品：${customFoodDB.length}件`;
+  if($('learnedFoodCount')) $('learnedFoodCount').textContent=`この端末の学習済み食品：${customFoodDB.length}件（料理登録時に学習）`;
   $('recipeAIRows').innerHTML=aiRecipeIngredients.map((x,i)=>{
     const st=getAIIngredientState(x);
     const cls=(st.kind==='exact'||st.kind==='learned')?'ok':st.kind==='alias'?'alias':st.kind==='ai'?'ai':'warn';
@@ -831,22 +872,22 @@ $('addAIIngredients').onclick=()=>{
       salt:r1((Number(db.salt)||0)*ratio),
       source:(!local && x.nutrition)?'ai_estimate':(local?local._match:'db'),
       resolvedName:x.resolved_name||db.name||x.name,
-      confidence:x.confidence||''
-    });
-
-    // AI補完をユーザーが「一括追加」で採用したら、この端末の食品DBに学習
-    if(!local && x.nutrition){
-      upsertCustomFood({
-        name:displayName,
+      confidence:x.confidence||'',
+      sourceNutrition:(!local && x.nutrition)?{
         kcal:Number(db.kcal)||0,
         p:Number(db.p)||0,
         f:Number(db.f)||0,
         c:Number(db.c)||0,
         salt:Number(db.salt)||0,
-        tbsp_g:db.tbsp_g, tsp_g:db.tsp_g, piece_g:db.piece_g,
-        sheet_g:db.sheet_g, stick_g:db.stick_g, clove_g:db.clove_g, ml_g:db.ml_g
-      });
-    }
+        tbsp_g:db.tbsp_g,
+        tsp_g:db.tsp_g,
+        piece_g:db.piece_g,
+        sheet_g:db.sheet_g,
+        stick_g:db.stick_g,
+        clove_g:db.clove_g,
+        ml_g:db.ml_g
+      }:null
+    });
     added++;
   });
 
@@ -963,6 +1004,7 @@ $('registerRecipe').onclick=()=>{
   const t=recipeTotals();
   const finished=Math.max(0,num('recipeFinishedWeight'));
   const portion=Math.max(0,num('recipePortionWeight'));
+
   if(!name)return alert('料理名を入力してください');
   if(!recipeIngredients.length)return alert('材料を1つ以上追加してください');
   if(!finished)return alert('出来上がり総重量を入力してください');
@@ -991,13 +1033,24 @@ $('registerRecipe').onclick=()=>{
     recipe:true
   });
 
+  // まず食事記録を確定保存
   saveCurrentDate();
   render();
 
-  // 登録成功後にだけレシピ入力を完全リセット
+  // 正常に料理登録できた時点で初めて、AI補完食品を学習DBへ保存
+  const learnResult=learnConfirmedRecipeIngredients();
+
+  // その後にフォームを初期化
   resetRecipeFormAfterRegister();
 
-  alert(`${name}を${meal}に登録しました`);
+  let msg=`${name}を${meal}に登録しました`;
+  if(learnResult.learned){
+    msg+=`\n\n学習済み食品DBに${learnResult.learned}件追加しました`;
+  }
+  if(learnResult.skippedExisting){
+    msg+=`\n既に学習済みの${learnResult.skippedExisting}件は上書きしていません`;
+  }
+  alert(msg);
 };
 
 $('cameraInput').onchange=e=>{
