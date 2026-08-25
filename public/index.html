@@ -49,7 +49,7 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 </head>
 <body>
 <div class="app">
-<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.0</span></div>
+<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.1</span></div>
 <div class="card">
   <div class="datebar">
     <div>
@@ -328,7 +328,18 @@ const ingredientAliases = {
   'ウスター':'ウスターソース',
   '中濃':'中濃ソース',
   'ごま油（胡麻油）':'ごま油',
-  '片栗こ':'片栗粉'
+  '片栗こ':'片栗粉',
+  'こいくちしょうゆ':'しょうゆ','濃口しょうゆ':'しょうゆ','濃口醤油':'しょうゆ',
+  'うすくちしょうゆ':'しょうゆ','薄口しょうゆ':'しょうゆ',
+  '清酒':'料理酒','日本酒':'料理酒',
+  '上白糖':'砂糖','三温糖':'砂糖',
+  '鶏ガラスープの素':'鶏がらスープの素','中華スープの素':'鶏がらスープの素',
+  '中華だし':'鶏がらスープの素',
+  'オイスター調味料':'オイスターソース',
+  'マヨ':'マヨネーズ',
+  'トマトケチャップ':'ケチャップ',
+  '穀物酢':'酢','米酢':'酢',
+  '合わせ味噌':'味噌','白みそ':'味噌','赤みそ':'味噌'
 };
 
 function normalizeIngredientKey(name){
@@ -459,7 +470,8 @@ function renderIngredients(){
   $('ingredientList').innerHTML=recipeIngredients.length?recipeIngredients.map((x,i)=>`
     <div class="ingredient">
       <div>
-        <b>${esc(x.name)}${x.source==='ai_estimate'?' <span class="resolve-badge">AI推定</span>':''}</b>
+        <b>${esc(x.name)}${x.source==='ai_estimate'?' <span class="resolve-badge">AI補完</span>':''}${x.confidence?` <span class="resolve-badge">信頼度:${esc(x.confidence)}</span>`:''}</b>
+        ${x.resolvedName && x.resolvedName!==x.name?`<div class="meta">標準食品名：${esc(x.resolvedName)}</div>`:''}
         <div class="meta">${x.amount}g・${x.kcal}kcal</div>
         <div class="meta">P ${x.p}g / F ${x.f}g / C ${x.c}g</div>
       </div>
@@ -580,25 +592,37 @@ function getAIIngredientState(x){
   const local=findIngredientDB(x.name);
   if(local){
     const kind=local._match==='exact'?'exact':'alias';
-    return {kind, item:local, label:kind==='exact'?'食材DB一致':'表記ゆれを自動補正', detail:local.name};
+    return {
+      kind,
+      item:local,
+      label:kind==='exact'?'食材DB一致':'標準食品名へ自動補正',
+      detail:local.name,
+      confidence:'高'
+    };
   }
   if(x.nutrition){
-    return {kind:'ai', item:ingredientNutritionFromResolved(x), label:'AI推定値', detail:x.resolved_name||x.name};
+    return {
+      kind:'ai',
+      item:ingredientNutritionFromResolved(x),
+      label:x.source==='candidate_match'?'候補食品へAIマッチ':'AI補完',
+      detail:x.resolved_name||x.name,
+      confidence:x.confidence||'中'
+    };
   }
-  return {kind:'warn', item:null, label:'栄養データ未解決', detail:''};
+  return {kind:'warn', item:null, label:'栄養データ未解決', detail:'', confidence:'低'};
 }
 
 function renderAIRecipeRows(){
   $('recipeAIRows').innerHTML=aiRecipeIngredients.map((x,i)=>{
     const st=getAIIngredientState(x);
     const cls=st.kind==='exact'?'ok':st.kind==='alias'?'alias':st.kind==='ai'?'ai':'warn';
-    const badge=st.kind==='exact'?'DB':st.kind==='alias'?'自動補正':st.kind==='ai'?'AI推定':'未解決';
+    const badge=st.kind==='exact'?'DB':st.kind==='alias'?'標準化':st.kind==='ai'?'AI補完':'未解決';
     return `<div class="recipe-ai-row">
       <div class="wide">
         <div class="label">材料名</div>
         <input list="ingredientFoodList" value="${esc(x.name||'')}" oninput="aiRecipeIngredients[${i}].name=this.value;aiRecipeIngredients[${i}].nutrition=null;aiRecipeIngredients[${i}].resolved_name='';renderAIRecipeStatus(${i})">
         <div id="aiStatus${i}" class="recipe-ai-status ${cls}">
-          ${st.label}<span class="resolve-badge">${badge}</span>${st.detail?` → ${esc(st.detail)}`:''}
+          ${st.label}<span class="resolve-badge">${badge}</span>${st.detail?` → ${esc(st.detail)}`:''}${st.confidence?` <span class="resolve-badge">信頼度:${esc(st.confidence)}</span>`:''}
         </div>
         ${st.kind==='ai'?'<div class="ai-estimate-note">※ AIによる概算値。商品や部位で差が出るため必要なら修正してください。</div>':''}
       </div>
@@ -617,9 +641,9 @@ window.renderAIRecipeStatus=(i)=>{
   const x=aiRecipeIngredients[i];
   const st=getAIIngredientState(x);
   const cls=st.kind==='exact'?'ok':st.kind==='alias'?'alias':st.kind==='ai'?'ai':'warn';
-  const badge=st.kind==='exact'?'DB':st.kind==='alias'?'自動補正':st.kind==='ai'?'AI推定':'未解決';
+  const badge=st.kind==='exact'?'DB':st.kind==='alias'?'標準化':st.kind==='ai'?'AI補完':'未解決';
   el.className='recipe-ai-status '+cls;
-  el.innerHTML=`${st.label}<span class="resolve-badge">${badge}</span>${st.detail?` → ${esc(st.detail)}`:''}`;
+  el.innerHTML=`${st.label}<span class="resolve-badge">${badge}</span>${st.detail?` → ${esc(st.detail)}`:''}${st.confidence?` <span class="resolve-badge">信頼度:${esc(st.confidence)}</span>`:''}`;
 };
 
 $('recipeImageInput').onchange=e=>{
@@ -649,7 +673,9 @@ $('analyzeRecipeBtn').onclick=async()=>{
       unit:normalizeAIUnit(x.unit),
       resolved_name:'',
       source:'',
-      nutrition:null
+      nutrition:null,
+      confidence:'',
+      match_reason:''
     }));
     if(!aiRecipeIngredients.length)throw new Error('材料を読み取れませんでした');
 
@@ -673,6 +699,8 @@ $('analyzeRecipeBtn').onclick=async()=>{
           if(!target)return;
           target.resolved_name=y.resolved_name||target.name;
           target.source=y.source||'ai';
+          target.confidence=y.confidence||'中';
+          target.match_reason=y.match_reason||'';
           target.nutrition=y.nutrition||null;
         });
       }
@@ -713,7 +741,9 @@ $('addAIIngredients').onclick=()=>{
       f:r1((Number(db.f)||0)*ratio),
       c:r1((Number(db.c)||0)*ratio),
       salt:r1((Number(db.salt)||0)*ratio),
-      source:(!local && x.nutrition)?'ai_estimate':(local?local._match:'db')
+      source:(!local && x.nutrition)?'ai_estimate':(local?local._match:'db'),
+      resolvedName:x.resolved_name||db.name||x.name,
+      confidence:x.confidence||''
     });
     added++;
   });
