@@ -49,7 +49,7 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
 </head>
 <body>
 <div class="app">
-<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.5</span></div>
+<h1>PFC Camera</h1><div class="sub">撮る → 確認 → 登録 <span style="font-size:11px;color:#999">v3.6</span></div>
 <div class="card">
   <div class="datebar">
     <div>
@@ -174,7 +174,18 @@ input,select{border:1px solid #e5e5ea;background:#fff}button{border:0;background
     <div>
       <div class="label">出来上がり総重量 g</div>
       <input id="recipeFinishedWeight" type="number" step="0.1" value="0">
-      <div class="db-note">材料重量合計を初期値にします。調理後に実測した場合はここを変更してください。</div>
+      <div class="db-note">材料重量合計を初期値にします。AI予測は参考値です。実際に量れる場合は実測値を優先してください。</div>
+
+      <div id="finishedWeightPredictBox" style="margin-top:10px;padding:12px;background:#f7f7f8;border-radius:12px">
+        <button id="predictFinishedWeight" type="button" class="secondary">AIで完成重量を予測</button>
+        <div id="finishedWeightPrediction" style="display:none;margin-top:10px"></div>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px">
+        <input id="learnFinishedWeight" type="checkbox" style="width:auto">
+        この完成重量は実測値として学習する
+      </label>
+      <div id="weightHistoryNote" class="db-note">実測値として登録した履歴だけを、次回の完成重量予測に利用します。</div>
     </div>
     <div><div class="label">今回食べた量 g</div><input id="recipePortionWeight" type="number" step="0.1" value="100"></div>
   </div>
@@ -248,6 +259,9 @@ let goals=JSON.parse(localStorage.getItem('pfc_goals')||'{"kcal":2000,"p":130,"f
 let recipeIngredients=[];
 let savedRecipes=JSON.parse(localStorage.getItem('pfc_recipes')||'[]');
 let aiRecipeIngredients=[];
+let aiRecipeMeta={dish_type:'',method_summary:'',water_behavior:''};
+let finishedWeightPrediction=null;
+let cookingWeightHistory=JSON.parse(localStorage.getItem('pfc_cooking_weight_history')||'[]');
 
 // よく使う食材の簡易データベース（100gあたり・概算）。
 // ユーザーが入力欄で自由に修正できる前提です。
@@ -553,6 +567,72 @@ function applyIngredientDB(){
 }
 
 
+
+function currentIngredientWeight(){
+  return r1(recipeIngredients.reduce((sum,x)=>sum+(Number(x.amount)||0),0));
+}
+
+function saveCookingWeightHistory(){
+  localStorage.setItem('pfc_cooking_weight_history',JSON.stringify(cookingWeightHistory));
+}
+
+function normalizedDishName(s){
+  return (s||'').trim().toLowerCase().replace(/[ 　（）()・]/g,'');
+}
+
+function matchingWeightHistory(name){
+  const key=normalizedDishName(name);
+  if(!key)return [];
+  return cookingWeightHistory
+    .filter(x=>{
+      const k=normalizedDishName(x.name);
+      return k===key || (key.length>=3 && (k.includes(key)||key.includes(k)));
+    })
+    .slice(-8);
+}
+
+function learnCookingWeightIfMeasured(name, finishedWeight){
+  if(!$('learnFinishedWeight')?.checked) return {learned:false};
+  const ingredientWeight=currentIngredientWeight();
+  if(!ingredientWeight || !finishedWeight) return {learned:false};
+
+  const retention=r1(finishedWeight/ingredientWeight*100)/100;
+  const record={
+    id:Date.now(),
+    name,
+    ingredientWeight:r1(ingredientWeight),
+    finishedWeight:r1(finishedWeight),
+    retention,
+    dishType:aiRecipeMeta.dish_type||'',
+    methodSummary:aiRecipeMeta.method_summary||'',
+    savedAt:new Date().toISOString()
+  };
+  cookingWeightHistory.push(record);
+  if(cookingWeightHistory.length>100) cookingWeightHistory=cookingWeightHistory.slice(-100);
+  saveCookingWeightHistory();
+  return {learned:true,retention};
+}
+
+function renderWeightHistoryNote(){
+  if(!$('weightHistoryNote'))return;
+  const name=$('recipeName')?.value||'';
+  const matches=matchingWeightHistory(name);
+  if(matches.length){
+    const avg=matches.reduce((s,x)=>s+(Number(x.retention)||0),0)/matches.length;
+    $('weightHistoryNote').textContent=`過去の実測：${matches.length}件 / 平均重量保持率 約${Math.round(avg*100)}%。AI予測の参考にします。`;
+  }else{
+    $('weightHistoryNote').textContent='この料理の実測履歴はまだありません。実測値として登録した履歴だけを次回予測に利用します。';
+  }
+}
+
+function resetFinishedWeightPrediction(){
+  finishedWeightPrediction=null;
+  if($('finishedWeightPrediction')){
+    $('finishedWeightPrediction').style.display='none';
+    $('finishedWeightPrediction').innerHTML='';
+  }
+}
+
 function recipeTotals(){
   return recipeIngredients.reduce((a,x)=>({
     kcal:a.kcal+(Number(x.kcal)||0),
@@ -594,6 +674,9 @@ function renderIngredients(){
     finishedEl.value=ingredientWeight;
     finishedEl.dataset.autoWeight=ingredientWeight;
     finishedEl.dataset.userEdited='';
+    finishedEl.dataset.weightSource='auto';
+    if($('learnFinishedWeight')) $('learnFinishedWeight').checked=false;
+    resetFinishedWeightPrediction();
   }
   updateRecipeScaled();
 }
@@ -666,6 +749,8 @@ function resetRecipeFormAfterRegister(){
   $('recipeName').value='';
   recipeIngredients=[];
   aiRecipeIngredients=[];
+  aiRecipeMeta={dish_type:'',method_summary:'',water_behavior:''};
+  finishedWeightPrediction=null;
 
   // AI recipe image / preview
   $('recipeImageInput').value='';
@@ -681,8 +766,12 @@ function resetRecipeFormAfterRegister(){
   $('recipeFinishedWeight').value=0;
   $('recipeFinishedWeight').dataset.autoWeight=0;
   $('recipeFinishedWeight').dataset.userEdited='';
+  $('recipeFinishedWeight').dataset.weightSource='auto';
+  if($('learnFinishedWeight')) $('learnFinishedWeight').checked=false;
+  resetFinishedWeightPrediction();
 
   renderIngredients();
+  renderWeightHistoryNote();
   updateRecipeScaled();
 
   // Back to fresh recipe state
@@ -819,6 +908,13 @@ $('analyzeRecipeBtn').onclick=async()=>{
     if(!res.ok)throw new Error(raw||`HTTP ${res.status}`);
     const d=JSON.parse(raw);
     if(d.recipe_name && !$('recipeName').value.trim()) $('recipeName').value=d.recipe_name;
+    aiRecipeMeta={
+      dish_type:d.dish_type||'',
+      method_summary:d.method_summary||'',
+      water_behavior:d.water_behavior||''
+    };
+    renderWeightHistoryNote();
+    resetFinishedWeightPrediction();
     aiRecipeIngredients=(Array.isArray(d.ingredients)?d.ingredients:[]).map(x=>({
       name:x.name||'',
       quantity:Number(x.quantity)||0,
@@ -1012,11 +1108,89 @@ $('addIngredient').onclick=()=>{
   renderIngredients();
 };
 
+
+$('predictFinishedWeight').onclick=async()=>{
+  const name=$('recipeName').value.trim();
+  if(!name)return alert('料理名を入力してください');
+  if(!recipeIngredients.length)return alert('材料を一括追加してから予測してください');
+
+  const ingredientWeight=currentIngredientWeight();
+  if(!ingredientWeight)return alert('材料重量を確認してください');
+
+  const btn=$('predictFinishedWeight');
+  btn.disabled=true;
+  btn.textContent='完成重量を予測中…';
+
+  try{
+    const histories=matchingWeightHistory(name).map(x=>({
+      ingredientWeight:x.ingredientWeight,
+      finishedWeight:x.finishedWeight,
+      retention:x.retention,
+      dishType:x.dishType,
+      methodSummary:x.methodSummary
+    }));
+
+    const res=await fetch('/api/predict-finished-weight',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        recipe_name:name,
+        ingredient_weight:ingredientWeight,
+        ingredients:recipeIngredients.map(x=>({name:x.name,amount:Number(x.amount)||0})),
+        dish_type:aiRecipeMeta.dish_type||'',
+        method_summary:aiRecipeMeta.method_summary||'',
+        water_behavior:aiRecipeMeta.water_behavior||'',
+        measured_history:histories
+      })
+    });
+
+    const raw=await res.text();
+    if(!res.ok)throw new Error(raw||`HTTP ${res.status}`);
+    const d=JSON.parse(raw);
+    finishedWeightPrediction=d;
+
+    const est=Math.max(1,Math.round(Number(d.estimated_weight)||ingredientWeight));
+    const lo=Math.max(1,Math.round(Number(d.min_weight)||est));
+    const hi=Math.max(lo,Math.round(Number(d.max_weight)||est));
+    const conf=d.confidence||'中';
+    const reason=d.reason||'レシピ内容と材料重量から推定しました。';
+    const hist=Number(d.history_count)||0;
+
+    $('finishedWeightPrediction').style.display='block';
+    $('finishedWeightPrediction').innerHTML=`
+      <div style="font-weight:700">AI予測：${est}g</div>
+      <div class="meta">目安範囲 ${lo}〜${hi}g / 信頼度：${esc(conf)}</div>
+      <div class="meta" style="margin-top:6px">${esc(reason)}</div>
+      ${hist?`<div class="meta" style="margin-top:4px">過去の実測 ${hist}件も参考にしています。</div>`:''}
+      <button id="applyFinishedWeightPrediction" type="button" style="margin-top:8px">予測値 ${est}g を使う</button>
+    `;
+
+    $('applyFinishedWeightPrediction').onclick=()=>{
+      $('recipeFinishedWeight').value=est;
+      $('recipeFinishedWeight').dataset.userEdited='1';
+      $('recipeFinishedWeight').dataset.weightSource='ai';
+      $('learnFinishedWeight').checked=false;
+      updateRecipeScaled();
+    };
+  }catch(e){
+    alert('完成重量の予測に失敗しました。\n'+e.message);
+  }finally{
+    btn.disabled=false;
+    btn.textContent='AIで完成重量を予測';
+  }
+};
+
 $('recipeFinishedWeight').addEventListener('input',()=>{
   $('recipeFinishedWeight').dataset.userEdited='1';
+  $('recipeFinishedWeight').dataset.weightSource='manual';
+  resetFinishedWeightPrediction();
   updateRecipeScaled();
 });
 $('recipePortionWeight').addEventListener('input',updateRecipeScaled);
+$('recipeName').addEventListener('input',()=>{
+  renderWeightHistoryNote();
+  resetFinishedWeightPrediction();
+});
 
 $('saveRecipe').onclick=()=>{
   const name=$('recipeName').value.trim();
@@ -1034,7 +1208,7 @@ $('saveRecipe').onclick=()=>{
   }
 
   if(!finished)return alert('出来上がり総重量を入力してください');
-  const data={name,finishedWeight:finished,ingredients:recipeIngredients};
+  const data={name,finishedWeight:finished,ingredients:recipeIngredients,cookingMeta:{...aiRecipeMeta}};
   const idx=savedRecipes.findIndex(r=>r.name.toLowerCase()===name.toLowerCase());
   if(idx>=0)savedRecipes[idx]=data; else savedRecipes.unshift(data);
   localStorage.setItem('pfc_recipes',JSON.stringify(savedRecipes));
@@ -1046,6 +1220,7 @@ $('savedRecipeSelect').onchange=()=>{
   const i=parseInt($('savedRecipeSelect').value);
   if(Number.isNaN(i)){
     $('recipeName').value='';
+    aiRecipeMeta={dish_type:'',method_summary:'',water_behavior:''};
     recipeIngredients=[];
     $('recipeFinishedWeight').value=0;
     $('recipeFinishedWeight').dataset.autoWeight=0;
@@ -1056,12 +1231,16 @@ $('savedRecipeSelect').onchange=()=>{
   }
   const r=savedRecipes[i];
   $('recipeName').value=r.name;
+  aiRecipeMeta={dish_type:r.cookingMeta?.dish_type||'',method_summary:r.cookingMeta?.method_summary||'',water_behavior:r.cookingMeta?.water_behavior||''};
   recipeIngredients=(r.ingredients||[]).map(x=>({...x}));
   $('recipeFinishedWeight').value=r.finishedWeight||0;
   $('recipeFinishedWeight').dataset.autoWeight=r.finishedWeight||0;
   $('recipeFinishedWeight').dataset.userEdited='1';
   $('recipePortionWeight').value=Math.min(100,r.finishedWeight||100);
+  $('learnFinishedWeight').checked=false;
+  resetFinishedWeightPrediction();
   renderIngredients();
+  renderWeightHistoryNote();
 };
 
 $('registerRecipe').onclick=()=>{
@@ -1114,6 +1293,9 @@ $('registerRecipe').onclick=()=>{
 
   // 正常に料理登録できた時点で初めて、AI補完食品を学習DBへ保存
   const learnResult=learnConfirmedRecipeIngredients();
+
+  // 「実測値として学習する」にチェックされた場合だけ完成重量履歴へ保存
+  const weightLearnResult=learnCookingWeightIfMeasured(name,finished);
 
   // その後にフォームを初期化
   resetRecipeFormAfterRegister();
